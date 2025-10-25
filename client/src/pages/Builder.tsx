@@ -4,17 +4,31 @@ import { BuilderToolbox } from "@/components/BuilderToolbox";
 import { BuilderCanvas } from "@/components/BuilderCanvas";
 import { PropertiesPanel } from "@/components/PropertiesPanel";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { PageComponent, ComponentType, PageConfig } from "@shared/schema";
-import { Save, Eye, Download, ShoppingBag } from "lucide-react";
+import { Save, Eye, Download, ShoppingBag, Plus, Trash2, Edit2, Check, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Link } from "wouter";
 import { queryClient, apiRequest } from "@/lib/queryClient";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 export default function Builder() {
   const [components, setComponents] = useState<PageComponent[]>([]);
   const [selectedComponent, setSelectedComponent] = useState<PageComponent | null>(null);
   const [pageId, setPageId] = useState<string | null>(null);
-  const { toast } = useToast();
+  const [currentPageTitle, setCurrentPageTitle] = useState<string>('Untitled');
+  const [editingPageId, setEditingPageId] = useState<string | null>(null);
+  const [editingPageName, setEditingPageName] = useState("");
+  const [showNewPageDialog, setShowNewPageDialog] = useState(false);
+  const [newPageName, setNewPageName] = useState("");
+  const { toast} = useToast();
 
   // Load existing page configuration
   const { data: pages } = useQuery<PageConfig[]>({
@@ -23,27 +37,30 @@ export default function Builder() {
 
   // Load the first page on mount or create a new one
   useEffect(() => {
-    if (pages && pages.length > 0) {
+    if (pages && pages.length > 0 && !pageId) {
       const firstPage = pages[0];
       setPageId(firstPage.id);
+      setCurrentPageTitle(firstPage.name);
       setComponents(firstPage.components as PageComponent[]);
     }
-  }, [pages]);
+  }, [pages, pageId]);
 
   // Save mutation
   const saveMutation = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (): Promise<PageConfig> => {
       const configData = {
-        name: 'my-page',
+        name: currentPageTitle,
         components: components,
       };
 
       if (pageId) {
         // Update existing page
-        return apiRequest('PUT', `/api/pages/${pageId}`, configData);
+        const res = await apiRequest('PUT', `/api/pages/${pageId}`, configData);
+        return res.json();
       } else {
         // Create new page
-        return apiRequest('POST', '/api/pages', configData);
+        const res = await apiRequest('POST', '/api/pages', configData);
+        return res.json();
       }
     },
     onSuccess: (data: PageConfig) => {
@@ -59,6 +76,119 @@ export default function Builder() {
         title: "Error",
         description: "Failed to save page configuration",
         variant: "destructive",
+      });
+    },
+  });
+
+  // Create new page mutation
+  const createPageMutation = useMutation({
+    mutationFn: async (name: string): Promise<PageConfig> => {
+      const res = await apiRequest('POST', '/api/pages', {
+        name,
+        components: [],
+      });
+      return res.json();
+    },
+    onSuccess: (data: PageConfig) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/pages'] });
+      setPageId(data.id);
+      // Title already optimistically updated, just confirm it
+      setCurrentPageTitle(data.name);
+      setComponents([]);
+      setShowNewPageDialog(false);
+      setNewPageName("");
+      toast({
+        title: "Page created!",
+        description: `${data.name} has been created`,
+      });
+    },
+    onError: () => {
+      // Revert to previous title on error
+      const currentPage = pages?.find(p => p.id === pageId);
+      if (currentPage) {
+        setCurrentPageTitle(currentPage.name);
+      }
+      toast({
+        title: "Error",
+        description: "Failed to create page",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Rename page mutation
+  const renamePageMutation = useMutation({
+    mutationFn: async ({ id, name }: { id: string; name: string }) => {
+      // Use current components if renaming the active page
+      const componentsToSave = id === pageId ? components : (pages?.find(p => p.id === id)?.components || []);
+      
+      const res = await apiRequest('PUT', `/api/pages/${id}`, {
+        name,
+        components: componentsToSave,
+      });
+      return res.json();
+    },
+    onSuccess: (data, { id, name }) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/pages'] });
+      
+      // Title already optimistically updated, just confirm it
+      setEditingPageId(null);
+      setEditingPageName("");
+      toast({
+        title: "Page renamed!",
+      });
+    },
+    onError: (error, { id }) => {
+      // Revert optimistic update on error
+      if (id === pageId) {
+        const originalPage = pages?.find(p => p.id === id);
+        if (originalPage) {
+          setCurrentPageTitle(originalPage.name);
+        }
+      }
+      toast({
+        title: "Error",
+        description: "Failed to rename page",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Delete page mutation
+  const deletePageMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await apiRequest('DELETE', `/api/pages/${id}`, undefined);
+      return res.json();
+    },
+    onSuccess: async (_, deletedId) => {
+      // Invalidate and wait for fresh data
+      await queryClient.invalidateQueries({ queryKey: ['/api/pages'] });
+      
+      // If we deleted the current page, switch to another one using fresh data
+      if (pageId === deletedId) {
+        // Wait a tick for the query to settle
+        await new Promise(resolve => setTimeout(resolve, 0));
+        
+        // Get fresh pages data
+        const freshPages = queryClient.getQueryData<PageConfig[]>(['/api/pages']);
+        const remainingPage = freshPages?.[0];
+        
+        if (remainingPage) {
+          setPageId(remainingPage.id);
+          setCurrentPageTitle(remainingPage.name);
+          setComponents(remainingPage.components as PageComponent[]);
+          setSelectedComponent(null);
+        } else {
+          // No pages left (shouldn't happen due to UI disable)
+          setPageId(null);
+          setCurrentPageTitle('Untitled');
+          setComponents([]);
+          setSelectedComponent(null);
+        }
+      }
+      
+      toast({
+        title: "Page deleted!",
       });
     },
   });
@@ -179,6 +309,69 @@ export default function Builder() {
 
   const saveConfiguration = () => {
     saveMutation.mutate();
+  };
+
+  const switchPage = async (id: string) => {
+    // Save current page first (even if empty - deletions need to persist)
+    if (pageId) {
+      try {
+        await saveMutation.mutateAsync();
+      } catch (error) {
+        console.error("Failed to save before switching:", error);
+        toast({
+          title: "Error",
+          description: "Failed to save current page",
+          variant: "destructive",
+        });
+        return; // Don't switch if save fails
+      }
+    }
+    
+    // Switch to new page
+    const page = pages?.find(p => p.id === id);
+    if (page) {
+      setPageId(page.id);
+      setCurrentPageTitle(page.name);
+      setComponents(page.components as PageComponent[]);
+      setSelectedComponent(null);
+    }
+  };
+
+  const startEditingPage = (id: string, name: string) => {
+    setEditingPageId(id);
+    setEditingPageName(name);
+  };
+
+  const savePageName = () => {
+    if (editingPageId && editingPageName.trim()) {
+      const newName = editingPageName.trim();
+      
+      // Optimistically update local title if renaming current page
+      if (editingPageId === pageId) {
+        setCurrentPageTitle(newName);
+      }
+      
+      renamePageMutation.mutate({
+        id: editingPageId,
+        name: newName,
+      });
+    }
+  };
+
+  const cancelEditingPage = () => {
+    setEditingPageId(null);
+    setEditingPageName("");
+  };
+
+  const createNewPage = async () => {
+    if (newPageName.trim()) {
+      const pageName = newPageName.trim();
+      
+      // Optimistically update title (will be set correctly in onSuccess too)
+      setCurrentPageTitle(pageName);
+      
+      createPageMutation.mutate(pageName);
+    }
   };
 
   const exportPage = () => {
@@ -308,8 +501,105 @@ export default function Builder() {
 
       {/* Main Content */}
       <div className="flex flex-1 overflow-hidden">
-        {/* Left Sidebar - Toolbox */}
+        {/* Left Sidebar - Pages & Toolbox */}
         <aside className="w-72 border-r bg-card p-6 overflow-y-auto">
+          {/* Pages Section */}
+          <div className="mb-8">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold">Pages</h2>
+              <Button
+                size="sm"
+                variant="outline"
+                className="gap-1"
+                onClick={() => setShowNewPageDialog(true)}
+                data-testid="button-new-page"
+              >
+                <Plus className="w-3 h-3" />
+                New
+              </Button>
+            </div>
+            
+            <div className="space-y-2">
+              {pages?.map((page) => (
+                <div
+                  key={page.id}
+                  className={`p-2 rounded-md border ${
+                    page.id === pageId ? 'bg-accent border-primary' : 'border-border hover-elevate'
+                  }`}
+                >
+                  {editingPageId === page.id ? (
+                    <div className="flex items-center gap-1">
+                      <Input
+                        value={editingPageName}
+                        onChange={(e) => setEditingPageName(e.target.value)}
+                        className="h-7 text-sm"
+                        data-testid="input-page-name"
+                        autoFocus
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') savePageName();
+                          if (e.key === 'Escape') cancelEditingPage();
+                        }}
+                      />
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-7 w-7"
+                        onClick={savePageName}
+                        data-testid="button-save-page-name"
+                      >
+                        <Check className="w-3 h-3" />
+                      </Button>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-7 w-7"
+                        onClick={cancelEditingPage}
+                        data-testid="button-cancel-page-name"
+                      >
+                        <X className="w-3 h-3" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-between">
+                      <button
+                        className="flex-1 text-left text-sm truncate"
+                        onClick={() => switchPage(page.id)}
+                        data-testid={`button-page-${page.id}`}
+                      >
+                        {page.name}
+                      </button>
+                      <div className="flex items-center gap-1">
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-6 w-6"
+                          onClick={() => startEditingPage(page.id, page.name)}
+                          data-testid={`button-edit-page-${page.id}`}
+                        >
+                          <Edit2 className="w-3 h-3" />
+                        </Button>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-6 w-6 text-destructive"
+                          onClick={() => {
+                            if (confirm(`Delete "${page.name}"?`)) {
+                              deletePageMutation.mutate(page.id);
+                            }
+                          }}
+                          data-testid={`button-delete-page-${page.id}`}
+                          disabled={pages.length === 1}
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+
           <BuilderToolbox onAddComponent={addComponent} />
         </aside>
 
@@ -331,6 +621,43 @@ export default function Builder() {
           />
         </aside>
       </div>
+
+      {/* New Page Dialog */}
+      <Dialog open={showNewPageDialog} onOpenChange={setShowNewPageDialog}>
+        <DialogContent data-testid="dialog-new-page">
+          <DialogHeader>
+            <DialogTitle>Create New Page</DialogTitle>
+            <DialogDescription>
+              Enter a name for your new page. It will appear in the navigation menu.
+            </DialogDescription>
+          </DialogHeader>
+          <Input
+            value={newPageName}
+            onChange={(e) => setNewPageName(e.target.value)}
+            placeholder="Page name (e.g., About, Contact, Services)"
+            data-testid="input-new-page-name"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') createNewPage();
+            }}
+          />
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowNewPageDialog(false)}
+              data-testid="button-cancel-new-page"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={createNewPage}
+              disabled={!newPageName.trim() || createPageMutation.isPending}
+              data-testid="button-create-page"
+            >
+              {createPageMutation.isPending ? 'Creating...' : 'Create Page'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
