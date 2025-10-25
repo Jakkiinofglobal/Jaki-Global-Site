@@ -34,11 +34,12 @@ Preferred communication style: Simple, everyday language.
 
 **Runtime**: Node.js with Express.js server framework.
 
-**API Design**: RESTful API with JSON payloads, organized into three main categories:
+**API Design**: RESTful API with JSON payloads, organized into the following categories:
 - Page configuration endpoints (`/api/pages/*`) for saving and retrieving builder designs
 - Product endpoints (`/api/products/*`) for Printify catalog integration
 - Cart endpoints (`/api/cart/*`) for shopping cart persistence
 - PayPal integration endpoints (`/order`, `/setup`) for payment processing
+- Object storage endpoints (`/api/objects/upload`, `/api/images`, `/objects/*`) for image uploads
 
 **Data Storage**: Currently implements an in-memory storage layer (`MemStorage` class) with interfaces designed for easy migration to PostgreSQL with Drizzle ORM. The schema is defined using Drizzle's PostgreSQL adapter, indicating planned database integration.
 
@@ -88,6 +89,15 @@ Preferred communication style: Simple, everyday language.
 - Sandbox/Production environment switching
 - **CRITICAL**: PayPal integration code in `server/paypal.ts` and `client/src/components/PayPalButton.tsx` must never be modified per embedded warnings
 
+**Replit Object Storage** (Google Cloud Storage backend): Image upload and serving for builder. Provides:
+- Direct-to-cloud uploads via presigned URLs (POST `/api/objects/upload`)
+- Image URL normalization (PUT `/api/images`)
+- Public image serving (GET `/objects/:objectPath`)
+- Implemented using `blueprint:javascript_object_storage` with `ObjectUploader` component (Uppy v4)
+- Images stored in private directory, served publicly via normalized paths
+- Integration in `PropertiesPanel` for image and background component uploads
+- Environment variables: `PUBLIC_OBJECT_SEARCH_PATHS`, `PRIVATE_OBJECT_DIR`, `DEFAULT_OBJECT_STORAGE_BUCKET_ID`
+
 ### Database
 
 **Planned**: PostgreSQL via Neon serverless driver (`@neondatabase/serverless`)
@@ -111,6 +121,7 @@ Preferred communication style: Simple, everyday language.
 - `vaul` for drawer components
 - `embla-carousel-react` for carousels
 - `react-day-picker` for date selection
+- `@uppy/core`, `@uppy/aws-s3`, `@uppy/dashboard`, `@uppy/react` (v4) for file uploads with peer dependencies: `@uppy/drag-drop`, `@uppy/file-input`, `@uppy/progress-bar`, `@uppy/status-bar`, `@uppy/informer`
 
 ### Session Management
 

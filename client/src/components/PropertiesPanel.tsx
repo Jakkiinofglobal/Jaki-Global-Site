@@ -5,6 +5,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { ColorPicker } from "./ColorPicker";
 import { FontSelector } from "./FontSelector";
 import { PageComponent } from "@shared/schema";
+import { ObjectUploader } from "./ObjectUploader";
+import { Upload } from "lucide-react";
+import { apiRequest } from "@/lib/queryClient";
+import type { UploadResult } from "@uppy/core";
 import {
   Select,
   SelectContent,
@@ -65,13 +69,41 @@ export function PropertiesPanel({ component, onUpdate }: PropertiesPanelProps) {
                 data-testid="input-content"
               />
             ) : (
-              <Input
-                id="content"
-                value={component.content}
-                onChange={(e) => onUpdate({ content: e.target.value })}
-                placeholder={component.type === 'image' ? 'Image URL' : 'Content'}
-                data-testid="input-content"
-              />
+              <div className="space-y-2">
+                <Input
+                  id="content"
+                  value={component.content}
+                  onChange={(e) => onUpdate({ content: e.target.value })}
+                  placeholder={component.type === 'image' ? 'Image URL' : 'Content'}
+                  data-testid="input-content"
+                />
+                {component.type === 'image' && (
+                  <ObjectUploader
+                    maxNumberOfFiles={1}
+                    maxFileSize={10485760}
+                    onGetUploadParameters={async () => {
+                      const res = await apiRequest('POST', '/api/objects/upload', undefined);
+                      const data = await res.json();
+                      return {
+                        method: 'PUT' as const,
+                        url: data.uploadURL,
+                      };
+                    }}
+                    onComplete={async (result: UploadResult<Record<string, unknown>, Record<string, unknown>>) => {
+                      if (result.successful && result.successful.length > 0) {
+                        const uploadedURL = result.successful[0].uploadURL;
+                        const res = await apiRequest('PUT', '/api/images', { imageURL: uploadedURL });
+                        const data = await res.json();
+                        onUpdate({ content: data.objectPath });
+                      }
+                    }}
+                    buttonClassName="w-full"
+                  >
+                    <Upload className="w-4 h-4 mr-2" />
+                    Upload from Computer
+                  </ObjectUploader>
+                )}
+              </div>
             )}
           </div>
         </TabsContent>
@@ -150,6 +182,30 @@ export function PropertiesPanel({ component, onUpdate }: PropertiesPanelProps) {
                 placeholder="https://example.com/image.jpg"
                 data-testid="input-background-image"
               />
+              <ObjectUploader
+                maxNumberOfFiles={1}
+                maxFileSize={10485760}
+                onGetUploadParameters={async () => {
+                  const res = await apiRequest('POST', '/api/objects/upload', undefined);
+                  const data = await res.json();
+                  return {
+                    method: 'PUT' as const,
+                    url: data.uploadURL,
+                  };
+                }}
+                onComplete={async (result: UploadResult<Record<string, unknown>, Record<string, unknown>>) => {
+                  if (result.successful && result.successful.length > 0) {
+                    const uploadedURL = result.successful[0].uploadURL;
+                    const res = await apiRequest('PUT', '/api/images', { imageURL: uploadedURL });
+                    const data = await res.json();
+                    updateStyle({ backgroundImage: `url(${data.objectPath})` });
+                  }
+                }}
+                buttonClassName="w-full"
+              >
+                <Upload className="w-4 h-4 mr-2" />
+                Upload Background Image
+              </ObjectUploader>
             </div>
           )}
         </TabsContent>
