@@ -81,11 +81,20 @@ export default {
           busy: "rgb(239 68 68)",
           offline: "rgb(156 163 175)",
         },
+        gold: {
+          DEFAULT: "hsl(var(--gold-metallic) / <alpha-value>)",
+          light: "hsl(var(--gold-light) / <alpha-value>)",
+        },
+        silver: {
+          DEFAULT: "hsl(var(--silver-metallic) / <alpha-value>)",
+          light: "hsl(var(--silver-light) / <alpha-value>)",
+        },
       },
       fontFamily: {
         sans: ["var(--font-sans)"],
         serif: ["var(--font-serif)"],
         mono: ["var(--font-mono)"],
+        brand: ["var(--font-brand)"],
       },
       keyframes: {
         "accordion-down": {
