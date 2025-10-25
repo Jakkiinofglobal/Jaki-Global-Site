@@ -16,22 +16,30 @@ export default function Login() {
 
   const loginMutation = useMutation({
     mutationFn: async () => {
+      console.log('Starting login request...');
       const res = await apiRequest('POST', '/api/auth/login', { email, password });
+      console.log('Login response status:', res.status);
+      if (!res.ok) {
+        throw new Error('Login failed');
+      }
       return res.json();
     },
     onSuccess: async () => {
+      console.log('Login successful, invalidating queries...');
       // Invalidate and refetch auth state
       await queryClient.invalidateQueries({ queryKey: ['/api/auth/me'] });
       
       // Wait for refetch to complete
       await queryClient.refetchQueries({ queryKey: ['/api/auth/me'] });
       
+      console.log('Redirecting to /builder...');
       toast({
         title: "Login successful!",
       });
       setLocation("/builder");
     },
-    onError: () => {
+    onError: (error) => {
+      console.error('Login error:', error);
       toast({
         title: "Login failed",
         description: "Invalid email or password",
