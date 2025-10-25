@@ -1,9 +1,11 @@
 import express, { type Request, Response, NextFunction } from "express";
+import session from "express-session";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 
 const app = express();
 
+// Body parsing must come before session middleware
 declare module 'http' {
   interface IncomingMessage {
     rawBody: unknown
@@ -15,6 +17,26 @@ app.use(express.json({
   }
 }));
 app.use(express.urlencoded({ extended: false }));
+
+// Session configuration
+declare module 'express-session' {
+  interface SessionData {
+    authenticated?: boolean;
+    email?: string;
+  }
+}
+
+app.use(session({
+  secret: process.env.SESSION_SECRET || 'jaki-global-secret-key',
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    secure: process.env.NODE_ENV === 'production',
+    httpOnly: true,
+    maxAge: 24 * 60 * 60 * 1000, // 24 hours
+    sameSite: 'lax',
+  }
+}));
 
 app.use((req, res, next) => {
   const start = Date.now();

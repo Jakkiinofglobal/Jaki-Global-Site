@@ -6,10 +6,11 @@ import { PropertiesPanel } from "@/components/PropertiesPanel";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PageComponent, ComponentType, PageConfig } from "@shared/schema";
-import { Save, Eye, Download, ShoppingBag, Plus, Trash2, Edit2, Check, X } from "lucide-react";
+import { Save, Eye, Download, ShoppingBag, Plus, Trash2, Edit2, Check, X, LogOut } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { queryClient, apiRequest } from "@/lib/queryClient";
+import { useAuth } from "@/contexts/AuthContext";
 import {
   Dialog,
   DialogContent,
@@ -28,7 +29,9 @@ export default function Builder() {
   const [editingPageName, setEditingPageName] = useState("");
   const [showNewPageDialog, setShowNewPageDialog] = useState(false);
   const [newPageName, setNewPageName] = useState("");
-  const { toast} = useToast();
+  const { toast } = useToast();
+  const { logout } = useAuth();
+  const [, setLocation] = useLocation();
 
   // Load existing page configuration
   const { data: pages } = useQuery<PageConfig[]>({
@@ -495,6 +498,18 @@ export default function Builder() {
           <Button onClick={exportPage} className="gap-2" data-testid="button-export">
             <Download className="w-4 h-4" />
             Export
+          </Button>
+          <Button 
+            variant="ghost" 
+            onClick={() => {
+              logout();
+              setLocation("/login");
+            }} 
+            className="gap-2" 
+            data-testid="button-logout"
+          >
+            <LogOut className="w-4 h-4" />
+            Logout
           </Button>
         </div>
       </header>

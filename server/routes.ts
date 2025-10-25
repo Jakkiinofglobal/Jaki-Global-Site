@@ -1,11 +1,67 @@
-import type { Express } from "express";
+import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { getShops, getProducts, getProduct } from "./printify";
 import { createPaypalOrder, capturePaypalOrder, loadPaypalDefault } from "./paypal";
 import { insertPageConfigSchema, insertCartSchema } from "@shared/schema";
+import { z } from "zod";
+
+// Authentication credentials
+const ADMIN_EMAIL = "jakiinfo.global@gmail.com";
+const ADMIN_PASSWORD = "1234567";
+
+// Auth middleware
+function requireAuth(req: Request, res: Response, next: NextFunction) {
+  if (req.session?.authenticated) {
+    next();
+  } else {
+    res.status(401).json({ error: "Unauthorized" });
+  }
+}
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Authentication routes
+  const loginSchema = z.object({
+    email: z.string().email(),
+    password: z.string(),
+  });
+
+  app.post("/api/auth/login", async (req, res) => {
+    try {
+      const { email, password } = loginSchema.parse(req.body);
+      
+      if (email === ADMIN_EMAIL && password === ADMIN_PASSWORD) {
+        req.session.authenticated = true;
+        req.session.email = email;
+        res.json({ success: true, email });
+      } else {
+        res.status(401).json({ error: "Invalid credentials" });
+      }
+    } catch (error) {
+      console.error("Login error:", error);
+      res.status(400).json({ error: "Invalid request" });
+    }
+  });
+
+  app.post("/api/auth/logout", async (req, res) => {
+    req.session.destroy((err) => {
+      if (err) {
+        console.error("Logout error:", err);
+        res.status(500).json({ error: "Failed to logout" });
+      } else {
+        res.json({ success: true });
+      }
+    });
+  });
+
+  app.get("/api/auth/me", async (req, res) => {
+    if (req.session?.authenticated) {
+      res.json({ authenticated: true, email: req.session.email });
+    } else {
+      res.json({ authenticated: false });
+    }
+  });
+
   // PayPal routes (required by PayPal integration blueprint)
   app.get("/setup", async (req, res) => {
     await loadPaypalDefault(req, res);
@@ -61,8 +117,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Page configuration routes
-  app.get("/api/pages", async (req, res) => {
+  // Page configuration routes (protected)
+  app.get("/api/pages", requireAuth, async (req, res) => {
     try {
       const pages = await storage.getAllPageConfigs();
       res.json(pages);
@@ -72,7 +128,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/pages/:id", async (req, res) => {
+  app.get("/api/pages/:id", requireAuth, async (req, res) => {
     try {
       const page = await storage.getPageConfig(req.params.id);
       if (!page) {
@@ -85,7 +141,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/pages", async (req, res) => {
+  app.post("/api/pages", requireAuth, async (req, res) => {
     try {
       const validated = insertPageConfigSchema.parse(req.body);
       const page = await storage.createPageConfig(validated);
@@ -96,7 +152,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/pages/:id", async (req, res) => {
+  app.put("/api/pages/:id", requireAuth, async (req, res) => {
     try {
       const page = await storage.updatePageConfig(req.params.id, req.body);
       res.json(page);
@@ -106,7 +162,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/pages/:id", async (req, res) => {
+  app.delete("/api/pages/:id", requireAuth, async (req, res) => {
     try {
       await storage.deletePageConfig(req.params.id);
       res.json({ success: true });
