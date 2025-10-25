@@ -34,6 +34,7 @@ export function ProductDetailModal({
 }: ProductDetailModalProps) {
   const [selectedVariantId, setSelectedVariantId] = useState<number | null>(null);
   const [addedToCart, setAddedToCart] = useState(false);
+  const [selectedOptions, setSelectedOptions] = useState<Record<string, string>>({});
   const { toast } = useToast();
 
   if (!product) return null;
@@ -56,8 +57,6 @@ export function ProductDetailModal({
     });
     return Array.from(values);
   };
-
-  const [selectedOptions, setSelectedOptions] = useState<Record<string, string>>({});
 
   // Find matching variant based on selected options
   const findMatchingVariant = (options: Record<string, string>) => {
