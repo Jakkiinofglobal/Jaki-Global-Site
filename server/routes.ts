@@ -7,9 +7,14 @@ import { insertPageConfigSchema, insertCartSchema } from "@shared/schema";
 import { z } from "zod";
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
 
-// Authentication credentials
-const ADMIN_EMAIL = "jakiinfo.global@gmail.com";
-const ADMIN_PASSWORD = "1234567";
+// Authentication credentials - use environment variables with fallbacks for development
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL || "jakiinfo.global@gmail.com";
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "1234567";
+
+// Warn if using default credentials in production
+if (process.env.NODE_ENV === "production" && (!process.env.ADMIN_EMAIL || !process.env.ADMIN_PASSWORD)) {
+  console.warn("WARNING: Using default admin credentials in production. Please set ADMIN_EMAIL and ADMIN_PASSWORD environment variables.");
+}
 
 // Auth middleware
 function requireAuth(req: Request, res: Response, next: NextFunction) {
