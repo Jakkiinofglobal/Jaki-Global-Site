@@ -57,11 +57,9 @@ export default function Builder() {
       };
 
       if (pageId) {
-        // Update existing page
         const res = await apiRequest('PUT', `/api/pages/${pageId}`, configData);
         return res.json();
       } else {
-        // Create new page
         const res = await apiRequest('POST', '/api/pages', configData);
         return res.json();
       }
@@ -95,7 +93,6 @@ export default function Builder() {
     onSuccess: (data: PageConfig) => {
       queryClient.invalidateQueries({ queryKey: ['/api/pages'] });
       setPageId(data.id);
-      // Title already optimistically updated, just confirm it
       setCurrentPageTitle(data.name);
       setComponents([]);
       setShowNewPageDialog(false);
@@ -106,7 +103,6 @@ export default function Builder() {
       });
     },
     onError: () => {
-      // Revert to previous title on error
       const currentPage = pages?.find(p => p.id === pageId);
       if (currentPage) {
         setCurrentPageTitle(currentPage.name);
@@ -122,32 +118,24 @@ export default function Builder() {
   // Rename page mutation
   const renamePageMutation = useMutation({
     mutationFn: async ({ id, name }: { id: string; name: string }) => {
-      // Use current components if renaming the active page
-      const componentsToSave = id === pageId ? components : (pages?.find(p => p.id === id)?.components || []);
-      
+      const componentsToSave =
+        id === pageId ? components : (pages?.find(p => p.id === id)?.components || []);
       const res = await apiRequest('PUT', `/api/pages/${id}`, {
         name,
         components: componentsToSave,
       });
       return res.json();
     },
-    onSuccess: (data, { id, name }) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/pages'] });
-      
-      // Title already optimistically updated, just confirm it
       setEditingPageId(null);
       setEditingPageName("");
-      toast({
-        title: "Page renamed!",
-      });
+      toast({ title: "Page renamed!" });
     },
-    onError: (error, { id }) => {
-      // Revert optimistic update on error
+    onError: (_err, { id }) => {
       if (id === pageId) {
         const originalPage = pages?.find(p => p.id === id);
-        if (originalPage) {
-          setCurrentPageTitle(originalPage.name);
-        }
+        if (originalPage) setCurrentPageTitle(originalPage.name);
       }
       toast({
         title: "Error",
@@ -164,35 +152,24 @@ export default function Builder() {
       return res.json();
     },
     onSuccess: async (_, deletedId) => {
-      // Invalidate and wait for fresh data
       await queryClient.invalidateQueries({ queryKey: ['/api/pages'] });
-      
-      // If we deleted the current page, switch to another one using fresh data
       if (pageId === deletedId) {
-        // Wait a tick for the query to settle
-        await new Promise(resolve => setTimeout(resolve, 0));
-        
-        // Get fresh pages data
+        await new Promise(r => setTimeout(r, 0));
         const freshPages = queryClient.getQueryData<PageConfig[]>(['/api/pages']);
         const remainingPage = freshPages?.[0];
-        
         if (remainingPage) {
           setPageId(remainingPage.id);
           setCurrentPageTitle(remainingPage.name);
           setComponents(remainingPage.components as PageComponent[]);
           setSelectedComponent(null);
         } else {
-          // No pages left (shouldn't happen due to UI disable)
           setPageId(null);
           setCurrentPageTitle('Untitled');
           setComponents([]);
           setSelectedComponent(null);
         }
       }
-      
-      toast({
-        title: "Page deleted!",
-      });
+      toast({ title: "Page deleted!" });
     },
   });
 
@@ -206,9 +183,15 @@ export default function Builder() {
       order: components.length,
     };
 
-    setComponents([...components, newComponent]);
+    setComponents(prev => [...prev, newComponent]);
     setSelectedComponent(newComponent);
-    
+
+    // Ensure newly-added components are visible
+    setTimeout(() => {
+      const scroller = document.getElementById('canvasScroll');
+      if (scroller) scroller.scrollTo({ top: scroller.scrollHeight, behavior: 'smooth' });
+    }, 0);
+
     toast({
       title: "Component added",
       description: `${type} component has been added to your page`,
@@ -222,9 +205,9 @@ export default function Builder() {
       case 'text':
         return 'Your text here...';
       case 'image':
-        return '';
+        return ''; // URL will be set in PropertiesPanel
       case 'background':
-        return '';
+        return ''; // background image handled via style
       case 'button':
         return 'Click Here';
       case 'productGrid':
@@ -256,15 +239,25 @@ export default function Builder() {
           padding: '16px',
         };
       case 'image':
+        // Give images a visible footprint immediately and keep them responsive
         return {
           width: '100%',
+          maxWidth: '100%',
+          height: 'auto',
+          display: 'block',
           padding: '16px',
+          // helpful if no URL yet:
+          minHeight: '160px',
+          backgroundColor: '#f3f4f6',
+          borderRadius: '8px'
         };
       case 'background':
+        // Make the section clearly visible even before an image is set
         return {
           backgroundColor: '#f5f5f5',
           padding: '64px 32px',
           width: '100%',
+          minHeight: '320px',
         };
       case 'button':
         return {
@@ -275,11 +268,14 @@ export default function Builder() {
           backgroundColor: '#3b82f6',
           padding: '12px 32px',
           margin: '16px 0',
+          borderRadius: '8px',
+          display: 'inline-block'
         };
       case 'productGrid':
         return {
           padding: '32px 0',
           width: '100%',
+          minHeight: '200px'
         };
       default:
         return {};
@@ -290,9 +286,7 @@ export default function Builder() {
     if (!selectedComponent) return;
 
     const updatedComponents = components.map(comp =>
-      comp.id === selectedComponent.id
-        ? { ...comp, ...updates }
-        : comp
+      comp.id === selectedComponent.id ? { ...comp, ...updates } : comp
     );
 
     setComponents(updatedComponents);
@@ -301,9 +295,7 @@ export default function Builder() {
 
   const deleteComponent = (id: string) => {
     setComponents(components.filter(comp => comp.id !== id));
-    if (selectedComponent?.id === id) {
-      setSelectedComponent(null);
-    }
+    if (selectedComponent?.id === id) setSelectedComponent(null);
     toast({
       title: "Component deleted",
       description: "Component has been removed from your page",
@@ -315,22 +307,18 @@ export default function Builder() {
   };
 
   const switchPage = async (id: string) => {
-    // Save current page first (even if empty - deletions need to persist)
     if (pageId) {
       try {
         await saveMutation.mutateAsync();
-      } catch (error) {
-        console.error("Failed to save before switching:", error);
+      } catch {
         toast({
           title: "Error",
           description: "Failed to save current page",
           variant: "destructive",
         });
-        return; // Don't switch if save fails
+        return;
       }
     }
-    
-    // Switch to new page
     const page = pages?.find(p => p.id === id);
     if (page) {
       setPageId(page.id);
@@ -348,16 +336,8 @@ export default function Builder() {
   const savePageName = () => {
     if (editingPageId && editingPageName.trim()) {
       const newName = editingPageName.trim();
-      
-      // Optimistically update local title if renaming current page
-      if (editingPageId === pageId) {
-        setCurrentPageTitle(newName);
-      }
-      
-      renamePageMutation.mutate({
-        id: editingPageId,
-        name: newName,
-      });
+      if (editingPageId === pageId) setCurrentPageTitle(newName);
+      renamePageMutation.mutate({ id: editingPageId, name: newName });
     }
   };
 
@@ -367,18 +347,13 @@ export default function Builder() {
   };
 
   const createNewPage = async () => {
-    if (newPageName.trim()) {
-      const pageName = newPageName.trim();
-      
-      // Optimistically update title (will be set correctly in onSuccess too)
-      setCurrentPageTitle(pageName);
-      
-      createPageMutation.mutate(pageName);
-    }
+    if (!newPageName.trim()) return;
+    const pageName = newPageName.trim();
+    setCurrentPageTitle(pageName);
+    createPageMutation.mutate(pageName);
   };
 
   const exportPage = () => {
-    // Generate HTML export
     const html = generateHTML();
     const blob = new Blob([html], { type: 'text/html' });
     const url = URL.createObjectURL(blob);
@@ -388,10 +363,7 @@ export default function Builder() {
     a.click();
     URL.revokeObjectURL(url);
 
-    toast({
-      title: "Exported!",
-      description: "Your page has been downloaded as HTML",
-    });
+    toast({ title: "Exported!", description: "Your page has been downloaded as HTML" });
   };
 
   const generateHTML = () => {
@@ -411,12 +383,13 @@ export default function Builder() {
           case 'text':
             return `<p style="${styleStr}">${comp.content}</p>`;
           case 'image':
-            return comp.content ? `<img src="${comp.content}" style="${styleStr}" alt="Image" />` : '';
-          case 'background':
-            const bgStyle = comp.style.backgroundImage 
-              ? `${styleStr}; background-image: url(${comp.style.backgroundImage}); background-size: cover;`
+            return comp.content ? `<img src="${comp.content}" style="${styleStr}" alt="Image" />` : `<div style="${styleStr}; text-align:center; color:#6b7280;">No image URL set</div>`;
+          case 'background': {
+            const bgStyle = comp.style.backgroundImage
+              ? `${styleStr}; background-image: url(${comp.style.backgroundImage}); background-size: cover; background-position:center;`
               : styleStr;
-            return `<div style="${bgStyle}">${comp.content}</div>`;
+            return `<section style="${bgStyle}">${comp.content || ''}</section>`;
+          }
           case 'button':
             return `<button style="${styleStr}">${comp.content}</button>`;
           case 'productGrid':
@@ -437,30 +410,23 @@ export default function Builder() {
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@600;700;800&display=swap" rel="stylesheet">
   <style>
-    body {
-      margin: 0;
-      padding: 0;
-      font-family: 'Inter', sans-serif;
-    }
+    body { margin: 0; padding: 0; font-family: 'Inter', sans-serif; }
+    img { max-width: 100%; height: auto; display: block; }
+    section { width: 100%; }
   </style>
 </head>
 <body>
   ${componentsHTML}
-  
   <footer style="background-color:#0d0d0d; color:#ffffff; text-align:center; padding:20px; font-family:Arial, sans-serif;">
     <p style="margin:6px 0; font-size:16px;">
-      <strong>Contact:</strong> 
-      <a href="mailto:jakiinfo.global@gmail.com" style="color:#00aced; text-decoration:none;">
-        jakiinfo.global@gmail.com
-      </a>
+      <strong>Contact:</strong>
+      <a href="mailto:jakiinfo.global@gmail.com" style="color:#00aced; text-decoration:none;">jakiinfo.global@gmail.com</a>
     </p>
     <p style="margin:6px 0; font-size:16px;">
-      <strong>Please donate:</strong> 
+      <strong>Please donate:</strong>
       <span style="font-weight:bold; color:#ff4d4d;">$26KG1</span>
     </p>
-    <p style="margin:6px 0; font-size:13px; opacity:0.7;">
-      © 2025 Jaki Global. All rights reserved.
-    </p>
+    <p style="margin:6px 0; font-size:13px; opacity:0.7;">© 2025 Jaki Global. All rights reserved.</p>
   </footer>
 </body>
 </html>`;
@@ -481,10 +447,10 @@ export default function Builder() {
               View Shop
             </Button>
           </Link>
-          <Button 
-            variant="outline" 
-            onClick={saveConfiguration} 
-            className="gap-2" 
+          <Button
+            variant="outline"
+            onClick={saveConfiguration}
+            className="gap-2"
             data-testid="button-save"
             disabled={saveMutation.isPending}
           >
@@ -499,13 +465,10 @@ export default function Builder() {
             <Download className="w-4 h-4" />
             Export
           </Button>
-          <Button 
-            variant="ghost" 
-            onClick={() => {
-              logout();
-              setLocation("/login");
-            }} 
-            className="gap-2" 
+          <Button
+            variant="ghost"
+            onClick={() => { logout(); setLocation("/login"); }}
+            className="gap-2"
             data-testid="button-logout"
           >
             <LogOut className="w-4 h-4" />
@@ -517,7 +480,7 @@ export default function Builder() {
       {/* Main Content */}
       <div className="flex flex-1 overflow-hidden">
         {/* Left Sidebar - Pages & Toolbox */}
-        <aside className="w-72 border-r bg-card p-6 overflow-y-auto">
+        <aside className="w-72 border-r bg-card p-6 overflow-auto">
           {/* Pages Section */}
           <div className="mb-8">
             <div className="flex items-center justify-between mb-4">
@@ -533,14 +496,12 @@ export default function Builder() {
                 New
               </Button>
             </div>
-            
+
             <div className="space-y-2">
               {pages?.map((page) => (
                 <div
                   key={page.id}
-                  className={`p-2 rounded-md border ${
-                    page.id === pageId ? 'bg-accent border-primary' : 'border-border hover-elevate'
-                  }`}
+                  className={`p-2 rounded-md border ${page.id === pageId ? 'bg-accent border-primary' : 'border-border hover-elevate'}`}
                 >
                   {editingPageId === page.id ? (
                     <div className="flex items-center gap-1">
@@ -555,22 +516,10 @@ export default function Builder() {
                           if (e.key === 'Escape') cancelEditingPage();
                         }}
                       />
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="h-7 w-7"
-                        onClick={savePageName}
-                        data-testid="button-save-page-name"
-                      >
+                      <Button size="icon" variant="ghost" className="h-7 w-7" onClick={savePageName} data-testid="button-save-page-name">
                         <Check className="w-3 h-3" />
                       </Button>
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="h-7 w-7"
-                        onClick={cancelEditingPage}
-                        data-testid="button-cancel-page-name"
-                      >
+                      <Button size="icon" variant="ghost" className="h-7 w-7" onClick={cancelEditingPage} data-testid="button-cancel-page-name">
                         <X className="w-3 h-3" />
                       </Button>
                     </div>
@@ -584,24 +533,14 @@ export default function Builder() {
                         {page.name}
                       </button>
                       <div className="flex items-center gap-1">
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          className="h-6 w-6"
-                          onClick={() => startEditingPage(page.id, page.name)}
-                          data-testid={`button-edit-page-${page.id}`}
-                        >
+                        <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => startEditingPage(page.id, page.name)} data-testid={`button-edit-page-${page.id}`}>
                           <Edit2 className="w-3 h-3" />
                         </Button>
                         <Button
                           size="icon"
                           variant="ghost"
                           className="h-6 w-6 text-destructive"
-                          onClick={() => {
-                            if (confirm(`Delete "${page.name}"?`)) {
-                              deletePageMutation.mutate(page.id);
-                            }
-                          }}
+                          onClick={() => { if (confirm(`Delete "${page.name}"?`)) deletePageMutation.mutate(page.id); }}
                           data-testid={`button-delete-page-${page.id}`}
                           disabled={pages.length === 1}
                         >
@@ -619,7 +558,7 @@ export default function Builder() {
         </aside>
 
         {/* Center - Canvas */}
-        <main className="flex-1 p-6 overflow-hidden">
+        <main id="canvasScroll" className="flex-1 p-6 overflow-auto">
           <BuilderCanvas
             components={components}
             selectedComponent={selectedComponent}
@@ -629,7 +568,7 @@ export default function Builder() {
         </main>
 
         {/* Right Sidebar - Properties */}
-        <aside className="w-80 border-l bg-card p-6 overflow-hidden">
+        <aside className="w-80 border-l bg-card p-6 overflow-auto">
           <PropertiesPanel
             component={selectedComponent}
             onUpdate={updateComponent}
@@ -651,23 +590,13 @@ export default function Builder() {
             onChange={(e) => setNewPageName(e.target.value)}
             placeholder="Page name (e.g., About, Contact, Services)"
             data-testid="input-new-page-name"
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') createNewPage();
-            }}
+            onKeyDown={(e) => { if (e.key === 'Enter') createNewPage(); }}
           />
           <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setShowNewPageDialog(false)}
-              data-testid="button-cancel-new-page"
-            >
+            <Button variant="outline" onClick={() => setShowNewPageDialog(false)} data-testid="button-cancel-new-page">
               Cancel
             </Button>
-            <Button
-              onClick={createNewPage}
-              disabled={!newPageName.trim() || createPageMutation.isPending}
-              data-testid="button-create-page"
-            >
+            <Button onClick={createNewPage} disabled={!newPageName.trim() || createPageMutation.isPending} data-testid="button-create-page">
               {createPageMutation.isPending ? 'Creating...' : 'Create Page'}
             </Button>
           </DialogFooter>

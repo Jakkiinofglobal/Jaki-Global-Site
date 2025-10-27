@@ -1,154 +1,161 @@
-import { useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { PrintifyProduct } from "@shared/schema";
-import { ProductCard } from "@/components/ProductCard";
-import { ProductDetailModal } from "@/components/ProductDetailModal";
-import { CartDrawer } from "@/components/CartDrawer";
-import { JakiFooter } from "@/components/JakiFooter";
+import { PageComponent, PageConfig } from "@shared/schema";
 import { Button } from "@/components/ui/button";
-import { ShoppingCart, ArrowLeft } from "lucide-react";
-import { Link, useLocation } from "wouter";
-import { useToast } from "@/hooks/use-toast";
-import { Skeleton } from "@/components/ui/skeleton";
-import { useCart } from "@/contexts/CartContext";
 
-export default function Shop() {
-  const [, navigate] = useLocation();
-  const [selectedProduct, setSelectedProduct] = useState<PrintifyProduct | null>(null);
-  const [isCartOpen, setIsCartOpen] = useState(false);
-  const { items, addItem, removeItem, itemCount } = useCart();
-  const { toast } = useToast();
+/** Proper CSS background-image */
+function bg(urlStr?: string): React.CSSProperties {
+  if (!urlStr) return {};
+  const m = urlStr.match(/url\((.*)\)/i);
+  const raw = m ? m[1].replace(/^['"]|['"]$/g, "") : urlStr;
+  return { backgroundImage: `url(${raw})`, backgroundSize: "cover", backgroundPosition: "center" };
+}
 
-  const { data: products, isLoading } = useQuery<PrintifyProduct[]>({
-    queryKey: ['/api/products'],
-  });
+function RenderComp(c: PageComponent) {
+  const style: React.CSSProperties = { ...(c.style ?? {}) };
+  switch (c.type) {
+    case "header":
+      return (
+        <div key={c.id} style={style}>
+          <h1
+            style={{
+              fontFamily: c.style.fontFamily,
+              fontSize: (c.style.fontSize as any) || "32px",
+              fontWeight: (c.style.fontWeight as any) || "700",
+            }}
+          >
+            {c.content || "Header Text"}
+          </h1>
+        </div>
+      );
+    case "text":
+      return (
+        <div key={c.id} style={style}>
+          <p style={{ fontFamily: c.style.fontFamily }}>{c.content || ""}</p>
+        </div>
+      );
+    case "image":
+      return (
+        <div key={c.id} style={style}>
+          {c.content ? (
+            <img
+              src={c.content}
+              alt="Image"
+              style={{ maxWidth: "100%", height: "auto", display: "block" }}
+              draggable={false}
+            />
+          ) : null}
+        </div>
+      );
+    case "background": {
+      const s: React.CSSProperties = c.style?.backgroundImage
+        ? { ...style, ...bg(c.style.backgroundImage), minHeight: (c.style?.height as any) || "200px" }
+        : { ...style, minHeight: (c.style?.height as any) || "200px" };
+      return (
+        <section key={c.id} style={s}>
+          <div className="p-8">{c.content || ""}</div>
+        </section>
+      );
+    }
+    case "button":
+      return (
+        <div key={c.id} style={style}>
+          <button
+            style={{
+              fontFamily: c.style.fontFamily,
+              padding: (c.style.padding as any) || ("12px 24px" as any),
+              borderRadius: "6px",
+              border: "1px solid currentColor",
+              cursor: "pointer",
+            }}
+            onClick={(e) => e.preventDefault()}
+          >
+            {c.content || "Button"}
+          </button>
+        </div>
+      );
+    case "productGrid":
+      // In "Site" (static-style view), just show a placeholder or PayPal button later
+      return (
+        <div key={c.id} style={style} className="p-8 border rounded text-center text-sm text-muted-foreground">
+          Product Grid (live on hosted shop)
+        </div>
+      );
+    default:
+      return null;
+  }
+}
 
-  const handleAddToCart = (productId: string, variantId: number) => {
-    const product = products?.find(p => p.id === productId);
-    if (!product) return;
+export default function Site() {
+  const { data: pages } = useQuery<PageConfig[]>({ queryKey: ["/api/pages"] });
+  const [currentPageId, setCurrentPageId] = useState<string | null>(null);
 
-    const variant = product.variants.find(v => v.id === variantId);
-    if (!variant) return;
+  useEffect(() => {
+    if (pages && pages.length > 0 && !currentPageId) setCurrentPageId(pages[0].id);
+  }, [pages, currentPageId]);
 
-    addItem({
-      productId,
-      productTitle: product.title,
-      variantId,
-      variantTitle: variant.title,
-      price: variant.price,
-      quantity: 1,
-      image: product.images[0] || 'https://via.placeholder.com/100',
-    });
+  const current = useMemo(() => pages?.find((p) => p.id === currentPageId), [pages, currentPageId]);
+  const comps = useMemo(
+    () =>
+      (current?.components as PageComponent[] | undefined)?.slice().sort((a, b) => (a.order ?? 0) - (b.order ?? 0)) ||
+      [],
+    [current]
+  );
 
-    toast({
-      title: "Added to cart!",
-      description: `${product.title} has been added to your cart`,
-    });
-  };
+  // first background = page backdrop
+  const bgComp = comps.find((c) => c.type === "background") || null;
+  const content = bgComp ? comps.filter((c) => c.id !== bgComp.id) : comps;
 
-  const handleRemoveFromCart = (productId: string, variantId: number) => {
-    removeItem(productId, variantId);
-    toast({
-      title: "Removed from cart",
-      description: "Item has been removed from your cart",
-    });
-  };
-
-  const handleCheckout = () => {
-    setIsCartOpen(false);
-    navigate('/checkout');
-  };
+  const canvasBg: React.CSSProperties = bgComp
+    ? {
+        backgroundColor: bgComp.style?.backgroundColor || "transparent",
+        ...bg(bgComp.style?.backgroundImage),
+        padding: (bgComp.style?.padding as any) || "0",
+        minHeight: "100%",
+      }
+    : { minHeight: "100%" };
 
   return (
-    <div className="min-h-screen flex flex-col bg-background">
-      {/* Header */}
-      <header className="sticky top-0 z-50 border-b bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/60">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <Link href="/">
-              <Button variant="ghost" className="gap-2" data-testid="button-back-to-builder">
-                <ArrowLeft className="w-4 h-4" />
-                Builder
+    <div className="min-h-screen flex flex-col">
+      {/* Sticky header with nav */}
+      <header className="sticky top-0 z-10 bg-white/90 dark:bg-background/90 backdrop-blur border-b">
+        <div className="max-w-6xl mx-auto px-4 py-3 flex items-center gap-4 overflow-x-auto">
+          <strong className="whitespace-nowrap">Jaki Global</strong>
+          <nav className="flex items-center gap-2">
+            {pages?.map((p) => (
+              <Button
+                key={p.id}
+                size="sm"
+                variant={p.id === currentPageId ? "default" : "outline"}
+                onClick={() => setCurrentPageId(p.id)}
+                className="whitespace-nowrap"
+              >
+                {p.name}
               </Button>
-            </Link>
-            <h1 className="text-3xl font-brand font-bold" data-testid="text-shop-title">Jaki Global</h1>
-          </div>
-          <Button
-            variant="outline"
-            className="gap-2 relative"
-            onClick={() => setIsCartOpen(true)}
-            data-testid="button-open-cart"
-          >
-            <ShoppingCart className="w-5 h-5" />
-            Cart
-            {itemCount > 0 && (
-              <span className="absolute -top-2 -right-2 bg-primary text-primary-foreground rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold">
-                {itemCount}
-              </span>
-            )}
-          </Button>
+            ))}
+          </nav>
         </div>
       </header>
 
-      {/* Main Content */}
-      <main className="flex-1 container mx-auto px-4 py-12">
-        <div className="mb-8">
-          <h2 className="text-4xl font-bold mb-3">Our Products</h2>
-          <p className="text-lg text-muted-foreground">
-            Discover our collection of high-quality products
-          </p>
+      <main className="flex-1">
+        <div className="w-full">
+          <div className="max-w-6xl mx-auto min-h-screen p-6 space-y-4" style={canvasBg}>
+            {content.length === 0 ? (
+              <div className="text-center text-muted-foreground py-24">This page is empty.</div>
+            ) : (
+              content.map((c) => <React.Fragment key={c.id}>{RenderComp(c)}</React.Fragment>)
+            )}
+          </div>
         </div>
-
-        {isLoading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {Array.from({ length: 8 }).map((_, i) => (
-              <div key={i} className="space-y-4">
-                <Skeleton className="aspect-square w-full" />
-                <Skeleton className="h-6 w-3/4" />
-                <Skeleton className="h-4 w-1/2" />
-              </div>
-            ))}
-          </div>
-        ) : !products || products.length === 0 ? (
-          <div className="text-center py-16">
-            <ShoppingCart className="w-16 h-16 mx-auto text-muted-foreground mb-4" />
-            <h3 className="text-xl font-semibold mb-2">No products available</h3>
-            <p className="text-muted-foreground">
-              Products from your Printify store will appear here
-            </p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {products.map((product) => (
-              <ProductCard
-                key={product.id}
-                product={product}
-                onViewDetails={setSelectedProduct}
-              />
-            ))}
-          </div>
-        )}
       </main>
 
-      {/* Footer */}
-      <JakiFooter />
-
-      {/* Product Detail Modal */}
-      <ProductDetailModal
-        product={selectedProduct}
-        isOpen={!!selectedProduct}
-        onClose={() => setSelectedProduct(null)}
-        onAddToCart={handleAddToCart}
-      />
-
-      {/* Cart Drawer */}
-      <CartDrawer
-        isOpen={isCartOpen}
-        onClose={() => setIsCartOpen(false)}
-        items={items}
-        onRemoveItem={handleRemoveFromCart}
-        onCheckout={handleCheckout}
-      />
+      <footer className="bg-black text-white text-center py-5">
+        <p className="text-sm">
+          Contact: <a href="mailto:jakiinfo.global@gmail.com" className="underline">jakiinfo.global@gmail.com</a>
+        </p>
+        <p className="text-sm">Please donate: <span className="font-bold">$26KG1</span></p>
+        <p className="text-xs opacity-70">© 2025 Jaki Global. All rights reserved.</p>
+      </footer>
     </div>
   );
 }
