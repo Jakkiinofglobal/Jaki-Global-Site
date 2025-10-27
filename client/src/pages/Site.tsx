@@ -86,7 +86,7 @@ function RenderComp(c: PageComponent) {
   }
 }
 
-export default function Shop() {
+export default function Site() {
   const { data: pages } = useQuery<PageConfig[]>({ queryKey: ["/api/pages"] });
   const [currentPageId, setCurrentPageId] = useState<string | null>(null);
 
