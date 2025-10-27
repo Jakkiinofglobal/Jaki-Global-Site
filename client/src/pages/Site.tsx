@@ -1,161 +1,160 @@
-import React, { useEffect, useMemo, useState } from "react";
+// client/src/pages/Site.tsx
 import { useQuery } from "@tanstack/react-query";
-import { PageComponent, PageConfig } from "@shared/schema";
-import { Button } from "@/components/ui/button";
+import { PageConfig, PageComponent } from "@shared/schema";
+import { Card } from "@/components/ui/card";
 
-/** Proper CSS background-image */
-function bg(urlStr?: string): React.CSSProperties {
-  if (!urlStr) return {};
-  const m = urlStr.match(/url\((.*)\)/i);
-  const raw = m ? m[1].replace(/^['"]|['"]$/g, "") : urlStr;
-  return { backgroundImage: `url(${raw})`, backgroundSize: "cover", backgroundPosition: "center" };
-}
+function renderComponent(comp: PageComponent) {
+  const style: React.CSSProperties = {
+    ...comp.style,
+    position: "relative",
+  };
 
-function RenderComp(c: PageComponent) {
-  const style: React.CSSProperties = { ...(c.style ?? {}) };
-  switch (c.type) {
+  switch (comp.type) {
     case "header":
       return (
-        <div key={c.id} style={style}>
+        <div key={comp.id} style={style}>
           <h1
             style={{
-              fontFamily: c.style.fontFamily,
-              fontSize: (c.style.fontSize as any) || "32px",
-              fontWeight: (c.style.fontWeight as any) || "700",
+              fontFamily: comp.style.fontFamily,
+              fontSize: comp.style.fontSize || "32px",
+              fontWeight: (comp.style.fontWeight as any) || "700",
             }}
           >
-            {c.content || "Header Text"}
+            {comp.content || "Header Text"}
           </h1>
         </div>
       );
+
     case "text":
       return (
-        <div key={c.id} style={style}>
-          <p style={{ fontFamily: c.style.fontFamily }}>{c.content || ""}</p>
+        <div key={comp.id} style={style}>
+          <p style={{ fontFamily: comp.style.fontFamily }}>
+            {comp.content || "Text content goes here..."}
+          </p>
         </div>
       );
+
     case "image":
       return (
-        <div key={c.id} style={style}>
-          {c.content ? (
+        <div key={comp.id} style={style}>
+          {comp.content ? (
             <img
-              src={c.content}
+              src={comp.content}
               alt="Image"
               style={{ maxWidth: "100%", height: "auto", display: "block" }}
-              draggable={false}
             />
-          ) : null}
+          ) : (
+            <div className="bg-muted flex items-center justify-center p-8 rounded">
+              <p className="text-muted-foreground text-sm">No image set</p>
+            </div>
+          )}
         </div>
       );
+
     case "background": {
-      const s: React.CSSProperties = c.style?.backgroundImage
-        ? { ...style, ...bg(c.style.backgroundImage), minHeight: (c.style?.height as any) || "200px" }
-        : { ...style, minHeight: (c.style?.height as any) || "200px" };
+      const bgStyle: React.CSSProperties = comp.style.backgroundImage
+        ? {
+            backgroundImage: `url(${comp.style.backgroundImage})`,
+            backgroundSize: "cover",
+            backgroundPosition: "center",
+          }
+        : {};
       return (
-        <section key={c.id} style={s}>
-          <div className="p-8">{c.content || ""}</div>
+        <section key={comp.id} style={{ ...style, ...bgStyle, minHeight: "200px" }}>
+          <div className="p-8">
+            {comp.content || ""}
+          </div>
         </section>
       );
     }
+
     case "button":
       return (
-        <div key={c.id} style={style}>
+        <div key={comp.id} style={style}>
           <button
             style={{
-              fontFamily: c.style.fontFamily,
-              padding: (c.style.padding as any) || ("12px 24px" as any),
+              fontFamily: comp.style.fontFamily,
+              padding: (comp.style.padding as any) || "12px 24px",
               borderRadius: "6px",
               border: "1px solid currentColor",
-              cursor: "pointer",
             }}
-            onClick={(e) => e.preventDefault()}
           >
-            {c.content || "Button"}
+            {comp.content || "Button"}
           </button>
         </div>
       );
+
     case "productGrid":
-      // In "Site" (static-style view), just show a placeholder or PayPal button later
       return (
-        <div key={c.id} style={style} className="p-8 border rounded text-center text-sm text-muted-foreground">
-          Product Grid (live on hosted shop)
+        <div key={comp.id} style={style}>
+          <div className="bg-muted p-8 rounded text-center">
+            <p className="text-sm font-medium mb-2">Product Grid</p>
+            <p className="text-xs text-muted-foreground">
+              Products from your Printify store will appear here
+            </p>
+          </div>
         </div>
       );
+
     default:
       return null;
   }
 }
 
 export default function Site() {
-  const { data: pages } = useQuery<PageConfig[]>({ queryKey: ["/api/pages"] });
-  const [currentPageId, setCurrentPageId] = useState<string | null>(null);
+  const { data: pages, isLoading } = useQuery<PageConfig[]>({
+    queryKey: ["/api/pages"],
+  });
 
-  useEffect(() => {
-    if (pages && pages.length > 0 && !currentPageId) setCurrentPageId(pages[0].id);
-  }, [pages, currentPageId]);
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        Loading…
+      </div>
+    );
+  }
 
-  const current = useMemo(() => pages?.find((p) => p.id === currentPageId), [pages, currentPageId]);
-  const comps = useMemo(
-    () =>
-      (current?.components as PageComponent[] | undefined)?.slice().sort((a, b) => (a.order ?? 0) - (b.order ?? 0)) ||
-      [],
-    [current]
+  // Pick a “Home” page if it exists, else first page.
+  const home =
+    pages?.find((p) => p.name?.toLowerCase() === "home" || p.name?.toLowerCase() === "site") ??
+    pages?.[0];
+
+  if (!home || !home.components || home.components.length === 0) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-6">
+        <Card className="p-6 text-center max-w-md">
+          <h2 className="text-xl font-semibold mb-2">This page is empty.</h2>
+          <p className="text-muted-foreground">
+            Add content in the builder and click Save to publish.
+          </p>
+        </Card>
+      </div>
+    );
+  }
+
+  const ordered = [...(home.components as PageComponent[])].sort(
+    (a, b) => a.order - b.order
   );
 
-  // first background = page backdrop
-  const bgComp = comps.find((c) => c.type === "background") || null;
-  const content = bgComp ? comps.filter((c) => c.id !== bgComp.id) : comps;
-
-  const canvasBg: React.CSSProperties = bgComp
-    ? {
-        backgroundColor: bgComp.style?.backgroundColor || "transparent",
-        ...bg(bgComp.style?.backgroundImage),
-        padding: (bgComp.style?.padding as any) || "0",
-        minHeight: "100%",
-      }
-    : { minHeight: "100%" };
-
   return (
-    <div className="min-h-screen flex flex-col">
-      {/* Sticky header with nav */}
-      <header className="sticky top-0 z-10 bg-white/90 dark:bg-background/90 backdrop-blur border-b">
-        <div className="max-w-6xl mx-auto px-4 py-3 flex items-center gap-4 overflow-x-auto">
-          <strong className="whitespace-nowrap">Jaki Global</strong>
-          <nav className="flex items-center gap-2">
-            {pages?.map((p) => (
-              <Button
-                key={p.id}
-                size="sm"
-                variant={p.id === currentPageId ? "default" : "outline"}
-                onClick={() => setCurrentPageId(p.id)}
-                className="whitespace-nowrap"
-              >
-                {p.name}
-              </Button>
-            ))}
-          </nav>
-        </div>
-      </header>
+    <main className="min-h-screen bg-background">
+      <div className="max-w-6xl mx-auto p-6 space-y-4">
+        {ordered.map(renderComponent)}
+      </div>
 
-      <main className="flex-1">
-        <div className="w-full">
-          <div className="max-w-6xl mx-auto min-h-screen p-6 space-y-4" style={canvasBg}>
-            {content.length === 0 ? (
-              <div className="text-center text-muted-foreground py-24">This page is empty.</div>
-            ) : (
-              content.map((c) => <React.Fragment key={c.id}>{RenderComp(c)}</React.Fragment>)
-            )}
-          </div>
-        </div>
-      </main>
-
-      <footer className="bg-black text-white text-center py-5">
-        <p className="text-sm">
-          Contact: <a href="mailto:jakiinfo.global@gmail.com" className="underline">jakiinfo.global@gmail.com</a>
+      <footer className="mt-10 bg-[#0d0d0d] text-white text-center p-5">
+        <p className="m-1">
+          <strong>Contact:</strong>{" "}
+          <a href="mailto:jakiinfo.global@gmail.com" className="text-sky-400">
+            jakiinfo.global@gmail.com
+          </a>
         </p>
-        <p className="text-sm">Please donate: <span className="font-bold">$26KG1</span></p>
-        <p className="text-xs opacity-70">© 2025 Jaki Global. All rights reserved.</p>
+        <p className="m-1">
+          <strong>Please donate:</strong>{" "}
+          <span className="font-bold text-red-400">$26KG1</span>
+        </p>
+        <p className="m-1 opacity-70 text-sm">© 2025 Jaki Global. All rights reserved.</p>
       </footer>
-    </div>
+    </main>
   );
 }
