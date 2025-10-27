@@ -1,104 +1,83 @@
+// client/src/pages/Login.tsx
 import { useState } from "react";
 import { useLocation } from "wouter";
-import { useMutation } from "@tanstack/react-query";
-import { apiRequest, queryClient } from "@/lib/queryClient";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 
 export default function Login() {
+  const [, navigate] = useLocation();
+  const { toast } = useToast();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [, setLocation] = useLocation();
-  const { toast } = useToast();
+  const [submitting, setSubmitting] = useState(false);
 
-  const loginMutation = useMutation({
-    mutationFn: async () => {
-      console.log('Starting login request...');
-      const res = await apiRequest('POST', '/api/auth/login', { email, password });
-      console.log('Login response status:', res.status);
-      if (!res.ok) {
-        throw new Error('Login failed');
-      }
-      return res.json();
-    },
-    onSuccess: async () => {
-      console.log('Login successful, invalidating queries...');
-      // Invalidate and refetch auth state
-      await queryClient.invalidateQueries({ queryKey: ['/api/auth/me'] });
-      
-      // Wait for refetch to complete
-      await queryClient.refetchQueries({ queryKey: ['/api/auth/me'] });
-      
-      console.log('Redirecting to /builder...');
-      toast({
-        title: "Login successful!",
-      });
-      setLocation("/builder");
-    },
-    onError: (error) => {
-      console.error('Login error:', error);
-      toast({
-        title: "Login failed",
-        description: "Invalid email or password",
-        variant: "destructive",
-      });
-    },
-  });
-
-  const handleSubmit = (e: React.FormEvent) => {
+  async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (email && password) {
-      loginMutation.mutate();
+    if (submitting) return;
+    setSubmitting(true);
+
+    try {
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        // include so session cookie is stored in the browser
+        credentials: "include",
+        body: JSON.stringify({ email, password }),
+      });
+
+      if (!res.ok) {
+        const msg = await res.text();
+        throw new Error(msg || "Login failed");
+      }
+
+      toast({ title: "Login successful!" });
+      // IMPORTANT: go straight to the builder now
+      navigate("/builder");
+    } catch (err: any) {
+      toast({ title: "Login failed", description: err?.message ?? "Try again", variant: "destructive" });
+    } finally {
+      setSubmitting(false);
     }
-  };
+  }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader>
-          <CardTitle className="text-2xl">Jaki Global</CardTitle>
-          <CardDescription>Sign in to access the builder</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="email" data-testid="label-email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="jakiinfo.global@gmail.com"
-                required
-                data-testid="input-email"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="password" data-testid="label-password">Password</Label>
-              <Input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Enter password"
-                required
-                data-testid="input-password"
-              />
-            </div>
-            <Button
-              type="submit"
-              className="w-full"
-              disabled={loginMutation.isPending}
-              data-testid="button-login"
-            >
-              {loginMutation.isPending ? "Signing in..." : "Sign In"}
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
+    <div className="min-h-screen flex items-center justify-center p-4">
+      <form
+        onSubmit={onSubmit}
+        className="w-full max-w-md space-y-4 rounded-lg border bg-card p-6 shadow"
+      >
+        <h1 className="text-2xl font-semibold">Jaki Global</h1>
+        <p className="text-sm text-muted-foreground">Sign in to access the builder</p>
+
+        <div className="space-y-2">
+          <label className="text-sm">Email</label>
+          <input
+            className="w-full rounded-md border px-3 py-2"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            type="email"
+            required
+          />
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-sm">Password</label>
+          <input
+            className="w-full rounded-md border px-3 py-2"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            type="password"
+            required
+          />
+        </div>
+
+        <button
+          type="submit"
+          disabled={submitting}
+          className="w-full rounded-md bg-primary px-4 py-2 text-primary-foreground hover:opacity-90 disabled:opacity-60"
+        >
+          {submitting ? "Signing in..." : "Sign In"}
+        </button>
+      </form>
     </div>
   );
 }

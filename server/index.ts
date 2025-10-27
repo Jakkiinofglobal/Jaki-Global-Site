@@ -4,6 +4,8 @@ import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 
 const app = express();
+app.set("trust proxy", 1);
+
 
 // Body parsing must come before session middleware
 declare module 'http' {
@@ -31,12 +33,13 @@ app.use(session({
   resave: false,
   saveUninitialized: false,
   cookie: {
-    secure: process.env.NODE_ENV === 'production',
+    secure: process.env.NODE_ENV === 'production', // ✅ ensures secure cookies in Render
     httpOnly: true,
+    sameSite: 'lax', // ✅ works well with HTTPS
     maxAge: 24 * 60 * 60 * 1000, // 24 hours
-    sameSite: 'lax',
   }
 }));
+
 
 app.use((req, res, next) => {
   const start = Date.now();
