@@ -4,6 +4,22 @@ import { PageConfig, PageComponent } from "@shared/schema";
 import { Card } from "@/components/ui/card";
 import { ProductGrid } from "@/components/ProductGrid";
 
+// --- added: normalize any path the builder saves ---
+function normalizeAssetUrl(input?: string | null): string | null {
+  if (!input) return null;
+  const val = input.trim();
+  if (!val) return null;
+
+  // already absolute
+  if (/^https?:\/\//i.test(val)) return val;
+
+  // ensure single leading slash; strip leading "./"
+  const normalized = "/" + val.replace(/^\.?\//, "");
+
+  // common builder saves like "attached_assets/..." or "images/..."
+  return normalized;
+}
+
 function renderComponent(comp: PageComponent) {
   const style: React.CSSProperties = {
     ...comp.style,
@@ -35,12 +51,13 @@ function renderComponent(comp: PageComponent) {
         </div>
       );
 
-    case "image":
+    case "image": {
+      const src = normalizeAssetUrl(typeof comp.content === "string" ? comp.content : null);
       return (
         <div key={comp.id} style={style}>
-          {comp.content ? (
+          {src ? (
             <img
-              src={comp.content}
+              src={src}
               alt="Image"
               style={{ maxWidth: "100%", height: "auto", display: "block" }}
             />
@@ -51,20 +68,27 @@ function renderComponent(comp: PageComponent) {
           )}
         </div>
       );
+    }
 
     case "background": {
-      const bgStyle: React.CSSProperties = comp.style.backgroundImage
+      const bgUrl = normalizeAssetUrl(
+        typeof comp.style?.backgroundImage === "string"
+          ? comp.style.backgroundImage
+          : undefined
+      );
+
+      const bgStyle: React.CSSProperties = bgUrl
         ? {
-            backgroundImage: `url(${comp.style.backgroundImage})`,
+            backgroundImage: `url("${bgUrl}")`,
             backgroundSize: "cover",
             backgroundPosition: "center",
+            backgroundRepeat: "no-repeat",
           }
         : {};
+
       return (
         <section key={comp.id} style={{ ...style, ...bgStyle, minHeight: "200px" }}>
-          <div className="p-8">
-            {comp.content || ""}
-          </div>
+          <div className="p-8">{comp.content || ""}</div>
         </section>
       );
     }
