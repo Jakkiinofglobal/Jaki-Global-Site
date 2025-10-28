@@ -5,38 +5,43 @@ import { setupVite, serveStatic, log } from "./vite";
 
 const app = express();
 
-/** ✅ Tell Express we’re behind a proxy (Render) so secure cookies work */
+// Allow trusted proxy (Render needs this for cookies)
 app.set("trust proxy", 1);
 
-/** Body parsing (keep before session) */
-declare module "http" {
-  interface IncomingMessage { rawBody: unknown }
+// Body parsing must come before session middleware
+declare module 'http' {
+  interface IncomingMessage {
+    rawBody: unknown;
+  }
 }
+
 app.use(express.json({
-  verify: (req, _res, buf) => { (req as any).rawBody = buf; }
+  verify: (req, _res, buf) => {
+    req.rawBody = buf;
+  },
 }));
 app.use(express.urlencoded({ extended: false }));
 
-/** Session typing */
-declare module "express-session" {
+// Session configuration
+declare module 'express-session' {
   interface SessionData {
     authenticated?: boolean;
     email?: string;
   }
 }
 
-/** ✅ Session with secure cookie in production */
 app.use(session({
   secret: process.env.SESSION_SECRET || "jaki-global-secret-key",
   resave: false,
   saveUninitialized: false,
   cookie: {
-    secure: process.env.NODE_ENV === "production", // needs trust proxy = 1
+    secure: true,           // Required for Render HTTPS
     httpOnly: true,
-    sameSite: "lax",
-    maxAge: 24 * 60 * 60 * 1000,
-  }
+    sameSite: "none",       // Allow frontend/backend cookies
+    maxAge: 24 * 60 * 60 * 1000, // 24 hours
+  },
 }));
+
 
 /** Request/response logger (unchanged) */
   app.set("trust proxy", 1); // <--- add this line right above app.use(session)
