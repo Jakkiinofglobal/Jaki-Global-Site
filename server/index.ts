@@ -39,20 +39,20 @@ app.use(session({
 }));
 
 /** Request/response logger (unchanged) */
-app.use((req, res, next) => {
-  const start = Date.now();
-  const path = req.path;
-  let captured: any;
-  const ojson = res.json;
-  res.json = function (b, ...a) { captured = b; return ojson.apply(res, [b, ...a]); };
-  res.on("finish", () => {
-    if (path.startsWith("/api")) {
-      let line = `${req.method} ${path} ${res.statusCode} in ${Date.now() - start}ms`;
-      if (captured) line += ` :: ${JSON.stringify(captured)}`;
-      if (line.length > 80) line = line.slice(0, 79) + "…";
-      log(line);
+  app.set("trust proxy", 1); // <--- add this line right above app.use(session)
+
+  app.use(session({
+    secret: process.env.SESSION_SECRET || 'jaki-global-secret-key',
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      secure: true,          // Always true on Render (HTTPS)
+      httpOnly: true,
+      sameSite: "none",      // Allow cross-site cookies
+      maxAge: 24 * 60 * 60 * 1000,
     }
-  });
+  }));
+
   next();
 });
 
