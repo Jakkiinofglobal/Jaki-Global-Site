@@ -1,59 +1,61 @@
-import { createContext, useContext, useState, useEffect } from "react";
-import { useQuery, useMutation } from "@tanstack/react-query";
-import { apiRequest, queryClient } from "@/lib/queryClient";
+// client/src/contexts/AuthContext.tsx
+import React, { createContext, useContext, useEffect, useState } from "react";
 
-interface AuthContextType {
+type AuthCtx = {
   isAuthenticated: boolean;
   isLoading: boolean;
   email: string | null;
-  logout: () => void;
-}
+  refresh: () => Promise<void>;
+  logout: () => Promise<void>;
+};
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+const Ctx = createContext<AuthCtx>({
+  isAuthenticated: false,
+  isLoading: true,
+  email: null,
+  refresh: async () => {},
+  logout: async () => {},
+});
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isAuthenticated, setAuthed] = useState(false);
   const [email, setEmail] = useState<string | null>(null);
+  const [isLoading, setLoading] = useState(true);
 
-  const { data, isLoading } = useQuery<{ authenticated: boolean; email?: string }>({
-    queryKey: ['/api/auth/me'],
-    retry: false,
-  });
+  async function refresh() {
+    try {
+      const res = await fetch("/api/auth/me", { credentials: "include" }); // ✅ cookie required
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      setAuthed(!!data?.authenticated);
+      setEmail(data?.email ?? null);
+    } catch {
+      setAuthed(false);
+      setEmail(null);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function logout() {
+    try {
+      await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
+    } finally {
+      setAuthed(false);
+      setEmail(null);
+    }
+  }
 
   useEffect(() => {
-    if (data) {
-      setIsAuthenticated(data.authenticated);
-      setEmail(data.email || null);
-    }
-  }, [data]);
-
-  const logoutMutation = useMutation({
-    mutationFn: async () => {
-      const res = await apiRequest('POST', '/api/auth/logout', undefined);
-      return res.json();
-    },
-    onSuccess: () => {
-      setIsAuthenticated(false);
-      setEmail(null);
-      queryClient.invalidateQueries({ queryKey: ['/api/auth/me'] });
-    },
-  });
-
-  const logout = () => {
-    logoutMutation.mutate();
-  };
+    // On first load, always ask the server (no guessing)
+    refresh();
+  }, []);
 
   return (
-    <AuthContext.Provider value={{ isAuthenticated, isLoading, email, logout }}>
+    <Ctx.Provider value={{ isAuthenticated, isLoading, email, refresh, logout }}>
       {children}
-    </AuthContext.Provider>
+    </Ctx.Provider>
   );
 }
 
-export function useAuth() {
-  const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error("useAuth must be used within an AuthProvider");
-  }
-  return context;
-}
+export const useAuth = () => useContext(Ctx);

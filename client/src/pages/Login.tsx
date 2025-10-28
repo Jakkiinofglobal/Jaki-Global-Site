@@ -33,7 +33,11 @@ export default function Login() {
       // IMPORTANT: go straight to the builder now
       navigate("/builder");
     } catch (err: any) {
-      toast({ title: "Login failed", description: err?.message ?? "Try again", variant: "destructive" });
+      toast({
+        title: "Login failed",
+        description: err?.message ?? "Try again",
+        variant: "destructive",
+      });
     } finally {
       setSubmitting(false);
     }
@@ -46,7 +50,9 @@ export default function Login() {
         className="w-full max-w-md space-y-4 rounded-lg border bg-card p-6 shadow"
       >
         <h1 className="text-2xl font-semibold">Jaki Global</h1>
-        <p className="text-sm text-muted-foreground">Sign in to access the builder</p>
+        <p className="text-sm text-muted-foreground">
+          Sign in to access the builder
+        </p>
 
         <div className="space-y-2">
           <label className="text-sm">Email</label>

@@ -1,3 +1,4 @@
+// client/src/App.tsx
 import { Switch, Route, Redirect, Link, useLocation } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
@@ -5,15 +6,16 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { CartProvider } from "@/contexts/CartContext";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
-import Site from "@/pages/Site";
+import { Button } from "@/components/ui/button";
+
 import Builder from "@/pages/Builder";
 import Shop from "@/pages/Shop";
 import Checkout from "@/pages/Checkout";
 import Login from "@/pages/Login";
 import NotFound from "@/pages/not-found";
-import { Settings } from "lucide-react";
+import Site from "@/pages/Site";
 
-// Floating gear icon for Admin / Builder access
+// Floating gear/button for Admin / Builder access
 function AdminFab() {
   const { isAuthenticated } = useAuth();
   const [location] = useLocation();
@@ -21,22 +23,30 @@ function AdminFab() {
   // Hide on the login page
   if (location === "/login") return null;
 
-  const to = isAuthenticated ? "/builder" : "/login";
-  const tooltip = isAuthenticated ? "Open Builder" : "Admin Login";
+  // If you're already in the builder, show "Back to Site"
+  if (location.startsWith("/builder")) {
+    return (
+      <div className="fixed bottom-4 right-4 z-50">
+        <Link href="/">
+          <Button className="shadow-lg">Back to Site</Button>
+        </Link>
+      </div>
+    );
+  }
 
+  // Everywhere else
   return (
-    <Link href={to}>
-      <button
-        title={tooltip}
-        className="fixed bottom-4 right-4 z-[9999] bg-white/80 hover:bg-white p-2 rounded-full shadow-lg border border-gray-300 transition"
-      >
-        <Settings className="w-5 h-5 text-gray-700" />
-      </button>
-    </Link>
+    <div className="fixed bottom-4 right-4 z-50">
+      <Link href={isAuthenticated ? "/builder" : "/login"}>
+        <Button className="shadow-lg">
+          {isAuthenticated ? "Open Builder" : "Admin Login"}
+        </Button>
+      </Link>
+    </div>
   );
 }
 
-// Protect specific routes (used for /builder)
+// Protect specific routes (only for /builder)
 function ProtectedRoute({ component: Component }: { component: React.ComponentType }) {
   const { isAuthenticated, isLoading } = useAuth();
 
@@ -75,7 +85,7 @@ function Router() {
   );
 }
 
-export default function App() {
+function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
@@ -90,3 +100,5 @@ export default function App() {
     </QueryClientProvider>
   );
 }
+
+export default App; // <-- IMPORTANT: default export
