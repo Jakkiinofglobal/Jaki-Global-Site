@@ -2,6 +2,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { PageConfig, PageComponent } from "@shared/schema";
 import { Card } from "@/components/ui/card";
+import { ProductGrid } from "@/components/ProductGrid";
 
 function renderComponent(comp: PageComponent) {
   const style: React.CSSProperties = {
@@ -87,12 +88,7 @@ function renderComponent(comp: PageComponent) {
     case "productGrid":
       return (
         <div key={comp.id} style={style}>
-          <div className="bg-muted p-8 rounded text-center">
-            <p className="text-sm font-medium mb-2">Product Grid</p>
-            <p className="text-xs text-muted-foreground">
-              Products from your Printify store will appear here
-            </p>
-          </div>
+          <ProductGrid />
         </div>
       );
 
@@ -119,7 +115,7 @@ export default function Site() {
     pages?.find((p) => p.name?.toLowerCase() === "home" || p.name?.toLowerCase() === "site") ??
     pages?.[0];
 
-  if (!home || !home.components || home.components.length === 0) {
+  if (!home || !home.components || (Array.isArray(home.components) && home.components.length === 0)) {
     return (
       <div className="min-h-screen flex items-center justify-center p-6">
         <Card className="p-6 text-center max-w-md">

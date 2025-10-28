@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { PageComponent, PageConfig } from "@shared/schema";
 import { Button } from "@/components/ui/button";
+import { ProductGrid } from "@/components/ProductGrid";
 
 /** Proper CSS background-image */
 function bg(urlStr?: string): React.CSSProperties {
@@ -75,10 +76,9 @@ function RenderComp(c: PageComponent) {
         </div>
       );
     case "productGrid":
-      // In "Site" (static-style view), just show a placeholder or PayPal button later
       return (
-        <div key={c.id} style={style} className="p-8 border rounded text-center text-sm text-muted-foreground">
-          Product Grid (live on hosted shop)
+        <div key={c.id} style={style}>
+          <ProductGrid />
         </div>
       );
     default:
