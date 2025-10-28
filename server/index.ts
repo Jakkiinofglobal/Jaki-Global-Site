@@ -41,17 +41,17 @@ app.use(session({
 /** Request/response logger (unchanged) */
   app.set("trust proxy", 1); // <--- add this line right above app.use(session)
 
-  app.use(session({
-    secret: process.env.SESSION_SECRET || 'jaki-global-secret-key',
-    resave: false,
-    saveUninitialized: false,
-    cookie: {
-      secure: true,          // Always true on Render (HTTPS)
-      httpOnly: true,
-      sameSite: "none",      // Allow cross-site cookies
-      maxAge: 24 * 60 * 60 * 1000,
-    }
-  }));
+app.use(session({
+  secret: process.env.SESSION_SECRET || 'jaki-global-secret-key',
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    secure: true,           // HTTPS only
+    httpOnly: true,
+    sameSite: "none",       // allow frontend <-> backend cookie use
+    maxAge: 24 * 60 * 60 * 1000, // 24h
+  },
+}));
 
   next();
 });
