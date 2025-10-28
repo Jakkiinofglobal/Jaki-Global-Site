@@ -5,58 +5,72 @@ import { setupVite, serveStatic, log } from "./vite";
 
 const app = express();
 
-// Allow trusted proxy (Render needs this for cookies)
+// ✅ Trust Render's proxy for secure cookies
 app.set("trust proxy", 1);
 
 // Body parsing must come before session middleware
-declare module 'http' {
+declare module "http" {
   interface IncomingMessage {
     rawBody: unknown;
   }
 }
 
-app.use(express.json({
-  verify: (req, _res, buf) => {
-    req.rawBody = buf;
-  },
-}));
+app.use(
+  express.json({
+    verify: (req, _res, buf) => {
+      req.rawBody = buf;
+    },
+  })
+);
 app.use(express.urlencoded({ extended: false }));
 
-// Session configuration
-declare module 'express-session' {
+// Session setup
+declare module "express-session" {
   interface SessionData {
     authenticated?: boolean;
     email?: string;
   }
 }
 
-app.use(session({
-  secret: process.env.SESSION_SECRET || "jaki-global-secret-key",
-  resave: false,
-  saveUninitialized: false,
-  cookie: {
-    secure: true,           // Required for Render HTTPS
-    httpOnly: true,
-    sameSite: "none",       // Allow frontend/backend cookies
-    maxAge: 24 * 60 * 60 * 1000, // 24 hours
-  },
-}));
+app.use(
+  session({
+    secret: process.env.SESSION_SECRET || "jaki-global-secret-key",
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      secure: true, // Required for Render HTTPS
+      httpOnly: true,
+      sameSite: "none", // Allow frontend/backend cookies
+      maxAge: 24 * 60 * 60 * 1000, // 24 hours
+    },
+  })
+);
 
+// ✅ Logging middleware
+app.use((req, res, next) => {
+  const start = Date.now();
+  const path = req.path;
+  let capturedJsonResponse: Record<string, any> | undefined = undefined;
 
-/** Request/response logger (unchanged) */
-  app.set("trust proxy", 1); // <--- add this line right above app.use(session)
+  const originalResJson = res.json;
+  res.json = function (bodyJson, ...args) {
+    capturedJsonResponse = bodyJson;
+    return originalResJson.apply(res, [bodyJson, ...args]);
+  };
 
-app.use(session({
-  secret: process.env.SESSION_SECRET || 'jaki-global-secret-key',
-  resave: false,
-  saveUninitialized: false,
-  cookie: {
-    secure: true,           // HTTPS only
-    httpOnly: true,
-    sameSite: "none",       // allow frontend <-> backend cookie use
-    maxAge: 24 * 60 * 60 * 1000, // 24h
-  },
-}));
+  res.on("finish", () => {
+    const duration = Date.now() - start;
+    if (path.startsWith("/api")) {
+      let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
+      if (capturedJsonResponse) {
+        logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
+      }
+      if (logLine.length > 80) {
+        logLine = logLine.slice(0, 79) + "…";
+      }
+      log(logLine);
+    }
+  });
 
   next();
 });
@@ -64,12 +78,14 @@ app.use(session({
 (async () => {
   const server = await registerRoutes(app);
 
-  app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
-    const status = err.status || err.statusCode || 500;
-    const message = err.message || "Internal Server Error";
-    res.status(status).json({ message });
-    throw err;
-  });
+  app.use(
+    (err: any, _req: Request, res: Response, _next: NextFunction) => {
+      const status = err.status || err.statusCode || 500;
+      const message = err.message || "Internal Server Error";
+      res.status(status).json({ message });
+      throw err;
+    }
+  );
 
   if (app.get("env") === "development") {
     await setupVite(app, server);
@@ -78,7 +94,14 @@ app.use(session({
   }
 
   const port = parseInt(process.env.PORT || "5000", 10);
-  server.listen({ port, host: "0.0.0.0", reusePort: true }, () => {
-    log(`serving on port ${port}`);
-  });
+  server.listen(
+    {
+      port,
+      host: "0.0.0.0",
+      reusePort: true,
+    },
+    () => {
+      log(`serving on port ${port}`);
+    }
+  );
 })();
