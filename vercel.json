@@ -1,5 +1,16 @@
 {
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist/public",
   "rewrites": [
-    { "source": "/((?!assets|favicon\\.ico).*)", "destination": "/index.html" }
+    {
+      "source": "/api/:path*",
+      "destination": "https://YOUR-RENDER-BACKEND.onrender.com/api/:path*"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/((?!assets|favicon\\.ico).*)",
+      "dest": "/index.html"
+    }
   ]
 }
