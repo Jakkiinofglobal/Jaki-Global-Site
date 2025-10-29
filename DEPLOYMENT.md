@@ -22,31 +22,25 @@
 
 ## Frontend Deployment (Vercel)
 
-1. **Update vercel.json:**
-   - Replace `YOUR-RENDER-BACKEND.onrender.com` with your actual Render URL
-   ```json
-   {
-     "rewrites": [
-       {
-         "source": "/api/:path*",
-         "destination": "https://my-app-backend.onrender.com/api/:path*"
-       }
-     ]
-   }
-   ```
+1. **Your vercel.json is already configured!**
+   - It's set to proxy API calls to: `https://jaki-global-site.onrender.com`
+   - Build output directory: `client/dist`
 
 2. **Deploy to Vercel:**
    - Go to https://vercel.com
    - Click "Add New..." → "Project"
    - Import your GitHub repository
-   - Vercel will auto-detect Vite configuration
+   - Vercel will use the custom build command from vercel.json
 
-3. **Add Environment Variables in Vercel:**
+3. **Add Environment Variables in Vercel (if needed):**
    - Go to Project Settings → Environment Variables
-   - Add: `VITE_API_URL=https://my-app-backend.onrender.com`
+   - Add any `VITE_` prefixed variables your app needs
+   - Example: `VITE_API_URL=https://jaki-global-site.onrender.com`
    - Make sure to set it for Production, Preview, and Development
 
 4. **Deploy** - Vercel will build and deploy your frontend
+   - Commit and push your changes to GitHub
+   - Vercel will automatically deploy
 
 ## Important Notes
 
