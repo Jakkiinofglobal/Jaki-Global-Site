@@ -1,24 +1,23 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
-import path from "path";
-import { fileURLToPath } from "url";
+import { fileURLToPath } from "node:url";
+import { dirname, resolve } from "node:path";
 import runtimeErrorOverlay from "@replit/vite-plugin-runtime-error-modal";
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const inReplit = Boolean(process.env.REPL_ID);
 
 export default defineConfig({
-  plugins: [react(), runtimeErrorOverlay()],
+  root: resolve(__dirname, "client"),
+  plugins: [react(), ...(inReplit ? [runtimeErrorOverlay()] : [])],
   resolve: {
     alias: {
-      "@": path.resolve(__dirname, "client", "src"),
-      "@shared": path.resolve(__dirname, "shared"),
-      "@assets": path.resolve(__dirname, "attached_assets"),
+      "@": resolve(__dirname, "client", "src"),
+      "@shared": resolve(__dirname, "shared"),
+      "@assets": resolve(__dirname, "attached_assets"),
     },
   },
-  // Keep the root at 'client'
-  root: path.resolve(__dirname, "client"),
   build: {
-    // Build into client/dist (so Vercel finds it)
     outDir: "dist",
     emptyOutDir: true,
   },
