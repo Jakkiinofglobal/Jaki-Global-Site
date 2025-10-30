@@ -1,14 +1,11 @@
 {
-  "rewrites": [
-    {
-      "source": "/api/:path*",
-      "destination": "https://jaki-global-site.onrender.com/api/:path*"
-    }
+  "version": 2,
+  "builds": [
+    { "src": "client/vite.config.js", "use": "@vercel/static-build", "config": { "distDir": "client/dist" } },
+    { "src": "server/index.ts", "use": "@vercel/node" }
   ],
-  "routes": [
-    {
-      "src": "/((?!assets|favicon\\.ico).*)",
-      "dest": "/index.html"
-    }
+  "rewrites": [
+    { "source": "/api/(.*)", "destination": "/server/$1" },
+    { "source": "/(.*)", "destination": "/client/dist/index.html" }
   ]
 }
