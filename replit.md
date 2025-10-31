@@ -66,12 +66,51 @@ Preferred communication style: Simple, everyday language.
 
 ### Build and Deployment
 
-**Build Process**: 
-1. Frontend: Vite bundles React application to static assets in `dist/public`
-2. Backend: esbuild bundles Express server to ESM format in `dist`
-3. Production runs compiled server serving pre-built static files
+**🔒 STABLE BASELINE: "Tailwind Verified / Vercel Clean Deploy" (Oct 31, 2025)**
+
+This configuration is the locked production-ready checkpoint. All future deployments should maintain this setup.
+
+**Deployment Architecture (Split)**:
+- **Backend**: Deployed to Render at `https://jaki-global-site.onrender.com`
+- **Frontend**: Deployed to Vercel at `https://jaki-global-site.vercel.app`
+- **API Proxy**: Vercel rewrites `/api/*` requests to Render backend
+
+**Frontend Build (Vercel)**:
+- Location: `/client` folder (Vercel root directory)
+- Build tool: Vite 5.4.21
+- Build command: `npm run build` (in `/client`)
+- Output directory: `client/dist/`
+- Framework: React 18 with TypeScript
+- Configuration files:
+  - `client/vite.config.ts` - Vite config with aliases (@, @assets, @shared)
+  - `client/tailwind.config.ts` - **CRITICAL**: Content paths must be relative to `/client`: `["./index.html", "./src/**/*.{js,jsx,ts,tsx}"]`
+  - `client/postcss.config.js` - PostCSS with Tailwind and Autoprefixer
+  - `client/vercel.json` - Vercel deployment config with API rewrites
+  - `client/package.json` - Frontend dependencies only
+
+**Backend Build (Render)**:
+- Location: Repository root
+- Runtime: Node.js with Express
+- Build command: `npm run build` (builds both frontend for dev and backend)
+- Start command: `npm run start`
+- Environment variables: `PRINTIFY_TOKEN`, PayPal credentials, database URL
+
+**Critical Configuration Notes**:
+1. **Tailwind Content Paths**: Must be relative to `/client` folder, not repository root
+   - ✅ Correct: `["./index.html", "./src/**/*.{js,jsx,ts,tsx}"]`
+   - ❌ Wrong: `["./client/index.html", "./client/src/**/*.{js,jsx,ts,tsx}"]`
+2. **Vercel Rewrites**: All `/api/*` calls automatically proxy to Render backend
+3. **Build Verification**: CSS file should be ~137-138 KB (confirms Tailwind styles included)
+4. **No Code Changes Needed**: API calls work seamlessly via Vercel rewrites
 
 **Environment Configuration**: Requires environment variables for Printify API token, PayPal credentials, and database URL (when migrating from in-memory storage).
+
+**Deployment Workflow**:
+1. Develop locally in Replit (full-stack dev server)
+2. Push to GitHub main branch
+3. Vercel auto-deploys frontend from `/client`
+4. Render runs backend independently
+5. Frontend and backend communicate via Vercel rewrites
 
 ## External Dependencies
 
