@@ -124,10 +124,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Public endpoint for viewing published pages (no auth required)
+  // Only returns pages intended for public viewing (named "home", "site", or the first page)
   app.get("/api/public/pages", async (req, res) => {
     try {
-      const pages = await storage.getAllPageConfigs();
-      res.json(pages);
+      const allPages = await storage.getAllPageConfigs();
+      // Filter to only return the home/site page (matching Site.tsx logic)
+      const homePage = allPages.find((p) => 
+        p.name?.toLowerCase() === "home" || p.name?.toLowerCase() === "site"
+      ) ?? allPages[0];
+      
+      // Return as array for compatibility with Site.tsx
+      res.json(homePage ? [homePage] : []);
     } catch (error) {
       console.error("Error fetching public pages:", error);
       res.status(500).json({ error: "Failed to fetch pages" });
