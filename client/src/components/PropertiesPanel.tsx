@@ -17,6 +17,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useToast } from "@/hooks/use-toast";
 
 interface PropertiesPanelProps {
   component: PageComponent | null;
@@ -41,6 +42,8 @@ function normalizeBgUrl(value: string): string {
 }
 
 export function PropertiesPanel({ component, onUpdate }: PropertiesPanelProps) {
+  const { toast } = useToast();
+
   if (!component) {
     return (
       <Card className="p-6 h-full flex items-center justify-center">
@@ -115,26 +118,51 @@ export function PropertiesPanel({ component, onUpdate }: PropertiesPanelProps) {
                     maxNumberOfFiles={1}
                     maxFileSize={10 * 1024 * 1024}
                     onGetUploadParameters={async () => {
-                      const res = await apiRequest(
-                        "POST",
-                        "/api/objects/upload",
-                        undefined
-                      );
-                      const data = await res.json();
-                      return { method: "PUT" as const, url: data.uploadURL };
+                      try {
+                        const res = await apiRequest(
+                          "POST",
+                          "/api/objects/upload",
+                          undefined
+                        );
+                        const data = await res.json();
+                        return { method: "PUT" as const, url: data.uploadURL };
+                      } catch (error) {
+                        toast({
+                          title: "Upload failed",
+                          description: "Failed to get upload URL. Please try again.",
+                          variant: "destructive",
+                        });
+                        throw error;
+                      }
                     }}
                     onComplete={async (
                       result: UploadResult<Record<string, unknown>, Record<string, unknown>>
                     ) => {
-                      if (result.successful && result.successful.length > 0) {
-                        const uploadedURL = result.successful[0].uploadURL as string;
-                        // Persist and get the public/object path
-                        const res = await apiRequest("PUT", "/api/images", {
-                          imageURL: uploadedURL,
+                      try {
+                        if (result.successful && result.successful.length > 0) {
+                          const uploadedURL = result.successful[0].uploadURL as string;
+                          const res = await apiRequest("PUT", "/api/images", {
+                            imageURL: uploadedURL,
+                          });
+                          const data = await res.json();
+                          onUpdate({ content: toAbsolute(String(data.objectPath)) });
+                          toast({
+                            title: "Image uploaded!",
+                            description: "Your image has been uploaded successfully.",
+                          });
+                        } else if (result.failed && result.failed.length > 0) {
+                          toast({
+                            title: "Upload failed",
+                            description: "Image upload failed. Please try again.",
+                            variant: "destructive",
+                          });
+                        }
+                      } catch (error) {
+                        toast({
+                          title: "Upload failed",
+                          description: "Failed to process uploaded image. Please try again.",
+                          variant: "destructive",
                         });
-                        const data = await res.json();
-                        // Store absolute URL in content so it renders immediately
-                        onUpdate({ content: toAbsolute(String(data.objectPath)) });
                       }
                     }}
                     buttonClassName="w-full"
@@ -234,26 +262,52 @@ export function PropertiesPanel({ component, onUpdate }: PropertiesPanelProps) {
                 maxNumberOfFiles={1}
                 maxFileSize={10 * 1024 * 1024}
                 onGetUploadParameters={async () => {
-                  const res = await apiRequest(
-                    "POST",
-                    "/api/objects/upload",
-                    undefined
-                  );
-                  const data = await res.json();
-                  return { method: "PUT" as const, url: data.uploadURL };
+                  try {
+                    const res = await apiRequest(
+                      "POST",
+                      "/api/objects/upload",
+                      undefined
+                    );
+                    const data = await res.json();
+                    return { method: "PUT" as const, url: data.uploadURL };
+                  } catch (error) {
+                    toast({
+                      title: "Upload failed",
+                      description: "Failed to get upload URL. Please try again.",
+                      variant: "destructive",
+                    });
+                    throw error;
+                  }
                 }}
                 onComplete={async (
                   result: UploadResult<Record<string, unknown>, Record<string, unknown>>
                 ) => {
-                  if (result.successful && result.successful.length > 0) {
-                    const uploadedURL = result.successful[0].uploadURL as string;
-                    const res = await apiRequest("PUT", "/api/images", {
-                      imageURL: uploadedURL,
-                    });
-                    const data = await res.json();
-                    // Store plain absolute URL (Builder adds url(...) when rendering)
-                    updateStyle({
-                      backgroundImage: toAbsolute(String(data.objectPath)),
+                  try {
+                    if (result.successful && result.successful.length > 0) {
+                      const uploadedURL = result.successful[0].uploadURL as string;
+                      const res = await apiRequest("PUT", "/api/images", {
+                        imageURL: uploadedURL,
+                      });
+                      const data = await res.json();
+                      updateStyle({
+                        backgroundImage: toAbsolute(String(data.objectPath)),
+                      });
+                      toast({
+                        title: "Background image uploaded!",
+                        description: "Your background image has been uploaded successfully.",
+                      });
+                    } else if (result.failed && result.failed.length > 0) {
+                      toast({
+                        title: "Upload failed",
+                        description: "Background image upload failed. Please try again.",
+                        variant: "destructive",
+                      });
+                    }
+                  } catch (error) {
+                    toast({
+                      title: "Upload failed",
+                      description: "Failed to process uploaded background image. Please try again.",
+                      variant: "destructive",
                     });
                   }
                 }}
