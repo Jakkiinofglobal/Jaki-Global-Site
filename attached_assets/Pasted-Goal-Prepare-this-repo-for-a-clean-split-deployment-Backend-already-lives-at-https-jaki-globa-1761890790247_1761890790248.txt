@@ -1,0 +1,106 @@
+Goal
+Prepare this repo for a clean split deployment:
+- Backend already lives at https://jaki-global-site.onrender.com (Render).
+- Frontend must deploy to Vercel as a Vite SPA from the /client folder.
+- /api/* in production should hit the Render API via Vercel rewrites (no code changes in the app).
+
+Do the following EXACTLY, then push to GitHub.
+
+A) Verify/normalize structure (do NOT move folders)
+- Keep monorepo layout:
+  /client  (React + Vite)
+  /server  (Express on Render)
+  /shared  (shared types/utils if any)
+- Remove stale root build artifacts and conflicting configs:
+  - Delete root /dist if present.
+  - Delete/rename root vercel.json (the Vercel config must live in /client).
+  - Keep vite config ONLY in /client (not at repo root).
+
+B) client/vite.config.ts (Node-safe + aliases)
+Create or update /client/vite.config.ts with this exact content:
+
+---BEGIN vite.config.ts---
+import { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react'
+import { fileURLToPath } from 'node:url'
+import { dirname, resolve } from 'node:path'
+
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = dirname(__filename)
+
+export default defineConfig({
+  plugins: [react()],
+  resolve: {
+    alias: {
+      '@': resolve(__dirname, 'src'),
+      '@assets': resolve(__dirname, 'src/assets'),
+      '@shared': resolve(__dirname, '../shared')
+    }
+  },
+  build: { outDir: 'dist', emptyOutDir: true }
+})
+---END vite.config.ts---
+
+C) client/package.json scripts (ensure present)
+- dev: "vite"
+- build: "vite build"
+- preview: "vite preview --strictPort --port 5173"
+
+D) client/vercel.json (SPA + API rewrite to Render)
+Create/overwrite /client/vercel.json:
+
+---BEGIN vercel.json---
+{
+  "framework": "vite",
+  "installCommand": "npm install",
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
+  "rewrites": [
+    { "source": "/api/(.*)", "destination": "https://jaki-global-site.onrender.com/api/$1" },
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
+}
+---END vercel.json---
+
+E) Fix CSS build compatibility (from earlier failure)
+- In /client/src, ensure no unsupported PostCSS/Tailwind features are used (e.g., `hsl(from ...)`).
+- If found, replace with static HSL or HEX. Keep the previous fix in index.css.
+
+F) .gitignore (repo root)
+Merge these entries:
+
+---BEGIN .gitignore---
+node_modules/
+dist/
+.vscode/
+.DS_Store
+.vercel/
+.replit
+.config/
+.local/
+replit.nix
+# Optional maps to slim uploads
+**/*.map
+---END .gitignore---
+
+G) Dev run sanity in Replit
+- Run:
+  cd client && npm install && npm run build
+- Verify file exists:
+  client/dist/index.html
+
+H) (Optional) Local preview
+- Run:
+  cd client && npm run preview
+- Confirm the preview serves the SPA.
+
+I) Push to GitHub (main)
+- git add -A
+- git commit -m "Final clean split: client → Vercel, API → Render; rewrites in client/vercel.json"
+- git push -u origin main --force
+
+J) Output a DONE summary including:
+- Confirmed folder structure
+- Files updated/created
+- Build success (yes/no)
+- Next steps for me
