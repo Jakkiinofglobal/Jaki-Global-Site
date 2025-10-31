@@ -123,6 +123,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Public endpoint for viewing published pages (no auth required)
+  app.get("/api/public/pages", async (req, res) => {
+    try {
+      const pages = await storage.getAllPageConfigs();
+      res.json(pages);
+    } catch (error) {
+      console.error("Error fetching public pages:", error);
+      res.status(500).json({ error: "Failed to fetch pages" });
+    }
+  });
+
   // Page configuration routes (protected)
   app.get("/api/pages", requireAuth, async (req, res) => {
     try {

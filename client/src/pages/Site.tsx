@@ -123,7 +123,7 @@ function renderComponent(comp: PageComponent) {
 
 export default function Site() {
   const { data: pages, isLoading } = useQuery<PageConfig[]>({
-    queryKey: ["/api/pages"],
+    queryKey: ["/api/public/pages"],
   });
 
   if (isLoading) {
