@@ -8,3 +8,6 @@ vite.config.ts.*
 .config/
 .vscode/
 .vercel/
+.replit
+replit.nix
+**/*.map
