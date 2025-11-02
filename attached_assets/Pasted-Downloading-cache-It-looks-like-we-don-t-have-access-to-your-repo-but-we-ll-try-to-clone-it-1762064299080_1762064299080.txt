@@ -1,0 +1,100 @@
+Downloading cache...
+==> It looks like we don't have access to your repo, but we'll try to clone it anyway.
+==> Cloning from https://github.com/Jakkiinofglobal/Jaki-Global-Site
+==> Checking out commit 35861c49712f0057bb080866adaa307870677723 in branch main
+==> Transferred 210MB in 3s. Extraction took 16s.
+==> Using Node.js version 22.16.0 (default)
+==> Docs on specifying a Node.js version: https://render.com/docs/node-version
+==> Running build command 'npm install && npm run build'...
+changed 1 package, and audited 619 packages in 2s
+80 packages are looking for funding
+  run npm fund for details
+8 vulnerabilities (3 low, 5 moderate)
+To address issues that do not require attention, run:
+  npm audit fix
+To address all issues (including breaking changes), run:
+  npm audit fix --force
+Run npm audit for details.
+> rest-express@1.0.0 build
+> vite build && esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist
+vite v5.4.20 building for production...
+transforming...
+A PostCSS plugin did not pass the from option to postcss.parse. This may cause imported assets to be incorrectly transformed. If you've recently added a PostCSS plugin that raised this warning, please contact the package author to fix the issue.
+✓ 1992 modules transformed.
+rendering chunks...
+computing gzip size...
+../dist/index.html                   2.19 kB │ gzip:   0.81 kB
+../dist/assets/index-BK_Omo35.css  137.85 kB │ gzip:  22.16 kB
+../dist/assets/index-DFZlmgTq.js   626.20 kB │ gzip: 197.57 kB
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+✓ built in 6.67s
+  dist/index.js  34.8kb
+⚡ Done in 5ms
+==> Uploading build...
+==> Uploaded in 6.7s. Compression took 9.8s
+==> Build successful 🎉
+==> Deploying...
+==> Running 'npm run migrate && node dist/index.js'
+> rest-express@1.0.0 migrate
+> drizzle-kit migrate --config drizzle.config.ts
+Reading config file '/opt/render/project/src/drizzle.config.ts'
+Using 'pg' driver for database querying
+Error: getaddrinfo ENOTFOUND dpg-d438l9ngi27c73fs5i90-a.internal
+    at /opt/render/project/src/node_modules/pg-pool/index.js:45:11
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async PgDialect.migrate (/opt/render/project/src/node_modules/src/pg-core/dialect.ts:85:3)
+    at async migrate (/opt/render/project/src/node_modules/src/node-postgres/migrator.ts:10:2) {
+  errno: -3008,
+  code: 'ENOTFOUND',
+  syscall: 'getaddrinfo',
+  hostname: 'dpg-d438l9ngi27c73fs5i90-a.internal'
+}
+[⣷] applying migrations...
+==> Exited with status 1
+==> Common ways to troubleshoot your deploy: https://render.com/docs/troubleshooting-deploys
+==> Running 'npm run migrate && node dist/index.js'
+> rest-express@1.0.0 migrate
+> drizzle-kit migrate --config drizzle.config.ts
+Reading config file '/opt/render/project/src/drizzle.config.ts'
+Using 'pg' driver for database querying
+Error: getaddrinfo ENOTFOUND dpg-d438l9ngi27c73fs5i90-a.internal
+    at /opt/render/project/src/node_modules/pg-pool/index.js:45:11
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async PgDialect.migrate (/opt/render/project/src/node_modules/src/pg-core/dialect.ts:85:3)
+    at async migrate (/opt/render/project/src/node_modules/src/node-postgres/migrator.ts:10:2) {
+  errno: -3008,
+  code: 'ENOTFOUND',
+  syscall: 'getaddrinfo',
+  hostname: 'dpg-d438l9ngi27c73fs5i90-a.internal'
+}
+[⣷] applying migrations...
+==> Running 'npm run migrate && node dist/index.js'
+> rest-express@1.0.0 migrate
+> drizzle-kit migrate --config drizzle.config.ts
+Reading config file '/opt/render/project/src/drizzle.config.ts'
+Using 'pg' driver for database querying
+Error: getaddrinfo ENOTFOUND dpg-d438l9ngi27c73fs5i90-a.internal
+    at /opt/render/project/src/node_modules/pg-pool/index.js:45:11
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async PgDialect.migrate (/opt/render/project/src/node_modules/src/pg-core/dialect.ts:85:3)
+    at async migrate (/opt/render/project/src/node_modules/src/node-postgres/migrator.ts:10:2) {
+  errno: -3008,
+  code: 'ENOTFOUND',
+  syscall: 'getaddrinfo',
+  hostname: 'dpg-d438l9ngi27c73fs5i90-a.internal'
+}
+[⣷] applying migrations... dont guess lets devise a a plan to get replit to look at it from its side since it built the site and fix what need s to be fixeed and let us know whet to do to get it up and done i got one move then im going to sleep and finish it  tomorrw      ................that was render this is vercel .....unning build in Washington, D.C., USA (East) – iad1
+Build machine configuration: 2 cores, 8 GB
+Cloning github.com/Jakkiinofglobal/Jaki-Global-Site (Branch: main, Commit: 22dd498)
+Cloning completed: 664.000ms
+Restored build cache from previous deployment (2tGEDsJUNyVuepUJjWyTfZnVseya)
+Running "vercel build"
+Vercel CLI 48.8.0
+Running "install" command: npm install...
+up to date, audited 378 packages in 2s
+56 packages are looking for funding
+  run npm fund for details
+2 moderate severity vulnerabilities
